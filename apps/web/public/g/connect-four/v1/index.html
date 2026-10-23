@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Connect Four</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: manipulation; }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; padding: 12px; box-sizing: border-box; }
+  #status { font-size: 20px; font-weight: 700; min-height: 26px; letter-spacing: .5px; }
+  #board { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2.4%;
+    width: min(94vw, 460px); aspect-ratio: 7 / 6; background: #11112080;
+    padding: 2.4%; border-radius: 14px; box-shadow: 0 0 0 2px #1b1b2a inset; }
+  .cell { background: #0a0a0f; border-radius: 50%; position: relative; cursor: pointer; }
+  .disc { position: absolute; inset: 8%; border-radius: 50%; transform: scale(0); transition: transform .12s; }
+  .cell.r .disc { transform: scale(1); background: radial-gradient(circle at 35% 30%, #fda4af, #f43f5e 60%, #9f1239); box-shadow: 0 0 14px #f43f5e; }
+  .cell.y .disc { transform: scale(1); background: radial-gradient(circle at 35% 30%, #fde68a, #facc15 60%, #a16207); box-shadow: 0 0 14px #facc15; }
+  .cell.win .disc { box-shadow: 0 0 0 3px #22d3ee, 0 0 18px #22d3ee; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  button { background: #0d0d16; color: #ededf2; border: 1px solid #2a2a3c; border-radius: 8px;
+    padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  button.on { background: #22d3ee; color: #0a0a0f; border-color: #22d3ee; }
+  button.primary { background: #22d3ee; color: #0a0a0f; border-color: #22d3ee; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="status">Red to move</div>
+  <div id="board"></div>
+  <div class="controls">
+    <button id="mAi" class="on">vs Computer</button>
+    <button id="m2p">2 Players</button>
+    <button id="reset" class="primary">New game</button>
+  </div>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const COLS = 7, ROWS = 6;
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+let grid, turn, over, vsAi = true, lock = false;
+const cells = [];
+for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+  const el = document.createElement('div');
+  el.className = 'cell'; el.innerHTML = '<div class="disc"></div>';
+  el.addEventListener('click', () => drop(c));
+  boardEl.appendChild(el); cells.push(el);
+}
+const at = (r, c) => cells[r * COLS + c];
+
+function render() {
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const v = grid[r][c];
+    at(r, c).className = 'cell' + (v ? ' ' + v : '');
+  }
+}
+function lowest(g, c) { for (let r = ROWS - 1; r >= 0; r--) if (!g[r][c]) return r; return -1; }
+function clone(g) { return g.map(row => row.slice()); }
+
+function winLine(g) {
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const v = g[r][c]; if (!v) continue;
+    for (const [dr, dc] of dirs) {
+      const line = [[r, c]];
+      for (let k = 1; k < 4; k++) {
+        const nr = r + dr * k, nc = c + dc * k;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || g[nr][nc] !== v) break;
+        line.push([nr, nc]);
+      }
+      if (line.length === 4) return { who: v, line };
+    }
+  }
+  return null;
+}
+function full(g) { return g[0].every(Boolean); }
+
+function setStatus() {
+  if (over) return;
+  const name = turn === 'r' ? 'Red' : 'Yellow';
+  if (vsAi) statusEl.textContent = turn === 'r' ? 'Your turn (Red)' : 'Computer thinking…';
+  else statusEl.textContent = name + ' to move';
+}
+function drop(c) {
+  if (over || lock) return;
+  if (vsAi && turn !== 'r') return;
+  const r = lowest(grid, c);
+  if (r < 0) return;
+  grid[r][c] = turn; render();
+  const w = winLine(grid);
+  if (w || full(grid)) return finish(w);
+  turn = turn === 'r' ? 'y' : 'r'; setStatus();
+  if (vsAi && turn === 'y') { lock = true; setTimeout(aiMove, 300); }
+}
+function aiMove() {
+  const c = chooseAi();
+  const r = lowest(grid, c);
+  grid[r][c] = 'y'; render(); lock = false;
+  const w = winLine(grid);
+  if (w || full(grid)) return finish(w);
+  turn = 'r'; setStatus();
+}
+// AI: win now, block an immediate loss, else short lookahead preferring center.
+function chooseAi() {
+  const valid = [...Array(COLS).keys()].filter(c => lowest(grid, c) >= 0);
+  for (const c of valid) { const g = clone(grid); g[lowest(g, c)][c] = 'y'; if (winLine(g)) return c; }
+  for (const c of valid) { const g = clone(grid); g[lowest(g, c)][c] = 'r'; if (winLine(g)) return c; }
+  // Avoid giving the opponent a win on their next move.
+  const safe = valid.filter(c => {
+    const g = clone(grid); g[lowest(g, c)][c] = 'y';
+    return !valid.some(c2 => { if (lowest(g, c2) < 0) return false; const g2 = clone(g); g2[lowest(g2, c2)][c2] = 'r'; return winLine(g2); });
+  });
+  const pool = safe.length ? safe : valid;
+  const order = [3, 2, 4, 1, 5, 0, 6].filter(c => pool.includes(c));
+  return order[0] ?? pool[(Math.random() * pool.length) | 0];
+}
+function finish(w) {
+  over = true; lock = false;
+  if (w) {
+    w.line.forEach(([r, c]) => at(r, c).classList.add('win'));
+    if (vsAi) statusEl.textContent = w.who === 'r' ? 'You win!' : 'Computer wins';
+    else statusEl.textContent = (w.who === 'r' ? 'Red' : 'Yellow') + ' wins!';
+  } else statusEl.textContent = 'Draw — board full';
+  Portal.gameplayStop();
+}
+function newGame() {
+  grid = Array.from({ length: ROWS }, () => Array(COLS).fill(''));
+  turn = 'r'; over = false; lock = false;
+  render(); setStatus(); Portal.gameplayStart();
+}
+function setMode(ai) {
+  vsAi = ai;
+  document.getElementById('mAi').classList.toggle('on', ai);
+  document.getElementById('m2p').classList.toggle('on', !ai);
+  Portal.save({ vsAi: ai });
+  newGame();
+}
+document.getElementById('mAi').addEventListener('click', () => setMode(true));
+document.getElementById('m2p').addEventListener('click', () => setMode(false));
+document.getElementById('reset').addEventListener('click', newGame);
+
+(async function init() {
+  await Portal.ready();
+  const saved = await Portal.load();
+  if (saved && typeof saved.vsAi === 'boolean') vsAi = saved.vsAi;
+  setMode(vsAi);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Neon Pong</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { background: #0d0d16; border-radius: 8px; max-width: 100%; max-height: 100%; }
+  #hud { position: fixed; top: 10px; left: 0; right: 0; text-align: center;
+    font-size: 18px; font-weight: 700; letter-spacing: 1px; pointer-events: none; }
+  #hud .you { color: #22d3ee; } #hud .cpu { color: #f472b6; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.85); text-align: center; }
+  button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 10px 20px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  h1 { margin: 0; font-size: 28px; }
+  p { margin: 0; color: #a1a1b5; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="640" height="360"></canvas></div>
+<div id="hud"><span class="you">You <span id="ps">0</span></span> &nbsp;·&nbsp; <span class="cpu">CPU <span id="cs">0</span></span></div>
+<div id="msg">
+  <h1 id="title">Neon Pong</h1>
+  <p id="sub">Move the mouse or drag to aim. First to lose 5 rallies is out.</p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const PW = 11, PH = 72, BALL = 7, PAD = 18;
+let py, ay, ball, speedMul, playerScore, cpuMiss, best = 0, running = false, timer = null;
+
+function reset() {
+  py = (H - PH) / 2; ay = (H - PH) / 2;
+  playerScore = 0; cpuMiss = 0; speedMul = 1;
+  serve(1);
+  updateHud();
+}
+function serve(dir) {
+  const angle = (Math.random() * 0.6 - 0.3); // -0.3..0.3 rad
+  const sp = 4.6 * speedMul;
+  ball = { x: W / 2, y: H / 2, vx: dir * sp * Math.cos(angle), vy: sp * Math.sin(angle) };
+}
+function updateHud() {
+  document.getElementById('ps').textContent = playerScore;
+  document.getElementById('cs').textContent = cpuMiss;
+}
+function step() {
+  // AI tracks the ball with capped speed (imperfect on purpose).
+  const aiSpeed = 4.4 + speedMul * 0.9;
+  const target = ball.y - PH / 2;
+  if (ay < target - 4) ay = Math.min(ay + aiSpeed, target);
+  else if (ay > target + 4) ay = Math.max(ay - aiSpeed, target);
+  ay = Math.max(0, Math.min(H - PH, ay));
+
+  ball.x += ball.vx; ball.y += ball.vy;
+
+  // Top / bottom walls.
+  if (ball.y - BALL < 0) { ball.y = BALL; ball.vy = Math.abs(ball.vy); }
+  if (ball.y + BALL > H) { ball.y = H - BALL; ball.vy = -Math.abs(ball.vy); }
+
+  // Player paddle (left).
+  if (ball.vx < 0 && ball.x - BALL <= PAD + PW && ball.x - BALL >= PAD - 6) {
+    if (ball.y >= py && ball.y <= py + PH) bounce(py, 1);
+  }
+  // CPU paddle (right).
+  if (ball.vx > 0 && ball.x + BALL >= W - PAD - PW && ball.x + BALL <= W - PAD + 6) {
+    if (ball.y >= ay && ball.y <= ay + PH) bounce(ay, -1);
+  }
+
+  // Scoring.
+  if (ball.x < -20) { cpuMiss = cpuMiss; pointLost(); }   // player missed
+  else if (ball.x > W + 20) { playerScore++; speedMul += 0.04; updateHud(); serve(-1); }
+
+  draw();
+}
+function bounce(paddleY, dir) {
+  const hit = ((ball.y - (paddleY + PH / 2)) / (PH / 2)); // -1..1
+  const sp = Math.min(4.6 * speedMul + 0.3, 13);
+  speedMul += 0.015;
+  const angle = hit * 1.05; // up to ~60deg
+  ball.vx = dir * sp * Math.cos(angle);
+  ball.vy = sp * Math.sin(angle);
+  ball.x += dir * 4;
+}
+function pointLost() {
+  cpuMiss++; updateHud();
+  if (cpuMiss >= 5) return gameOver();
+  speedMul = Math.max(1, speedMul - 0.1);
+  serve(1);
+}
+function draw() {
+  ctx.fillStyle = '#0d0d16'; ctx.fillRect(0, 0, W, H);
+  // center net
+  ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 2;
+  ctx.setLineDash([8, 12]); ctx.beginPath();
+  ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke(); ctx.setLineDash([]);
+  // paddles
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = '#22d3ee'; ctx.shadowColor = '#22d3ee';
+  ctx.fillRect(PAD, py, PW, PH);
+  ctx.fillStyle = '#f472b6'; ctx.shadowColor = '#f472b6';
+  ctx.fillRect(W - PAD - PW, ay, PW, PH);
+  // ball
+  ctx.fillStyle = '#ededf2'; ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+}
+async function gameOver() {
+  running = false; clearInterval(timer);
+  if (playerScore > best) { best = playerScore; Portal.save({ best: best }); }
+  Portal.submitScore(playerScore);
+  Portal.gameplayStop();
+  show('Game Over', 'You scored ' + playerScore + ' · Best ' + best, 'Play again');
+}
+function show(t, s, b) {
+  document.getElementById('title').textContent = t;
+  document.getElementById('sub').textContent = s;
+  document.getElementById('btn').textContent = b;
+  document.getElementById('msg').style.display = 'flex';
+}
+function movePaddleTo(clientY) {
+  const r = cv.getBoundingClientRect();
+  const y = (clientY - r.top) * (H / r.height);
+  py = Math.max(0, Math.min(H - PH, y - PH / 2));
+}
+function start() {
+  document.getElementById('msg').style.display = 'none';
+  reset(); running = true; Portal.gameplayStart();
+  clearInterval(timer); timer = setInterval(step, 1000 / 60); draw();
+}
+
+cv.addEventListener('mousemove', e => { if (running) movePaddleTo(e.clientY); });
+cv.parentElement.addEventListener('touchmove', e => {
+  if (running && e.touches[0]) { movePaddleTo(e.touches[0].clientY); e.preventDefault(); }
+}, { passive: false });
+cv.parentElement.addEventListener('touchstart', e => {
+  if (running && e.touches[0]) movePaddleTo(e.touches[0].clientY);
+}, { passive: true });
+document.addEventListener('keydown', e => {
+  if (!running) return;
+  if (e.key === 'ArrowUp' || e.key === 'w') { py = Math.max(0, py - 26); e.preventDefault(); }
+  else if (e.key === 'ArrowDown' || e.key === 's') { py = Math.min(H - PH, py + 26); e.preventDefault(); }
+});
+document.getElementById('btn').addEventListener('click', start);
+
+(async function init() {
+  await Portal.ready();
+  const saved = await Portal.load();
+  if (saved && saved.best) best = saved.best;
+  reset(); draw();
+  show('Neon Pong', 'Move the mouse or drag to aim. Lose 5 rallies and you are out.', 'Play');
+})();
+</script>
+</body>
+</html>

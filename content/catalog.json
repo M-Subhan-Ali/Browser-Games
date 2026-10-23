@@ -208,5 +208,131 @@
       "source": "https://github.com/yourname/browser-games-portal",
       "permissionFile": "licenses/neon-sniper.txt"
     }
+  },
+  {
+    "slug": "neon-pong",
+    "title": "Neon Pong",
+    "version": "v1",
+    "categories": ["arcade", "action"],
+    "thumbnail": "/thumbs/neon-pong.webp",
+    "description": "The original rally, dialed up in neon. Keep the ball alive against a relentless CPU.",
+    "controls": ["mouse", "keyboard", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 100000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/neon-pong.txt"
+    }
+  },
+  {
+    "slug": "whack-a-mole",
+    "title": "Whack-a-Mole",
+    "version": "v1",
+    "categories": ["arcade", "casual"],
+    "thumbnail": "/thumbs/whack-a-mole.webp",
+    "description": "Tap the moles, dodge the bombs, beat the clock. Thirty frantic seconds.",
+    "controls": ["mouse", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 10000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/whack-a-mole.txt"
+    }
+  },
+  {
+    "slug": "neon-simon",
+    "title": "Neon Simon",
+    "version": "v1",
+    "categories": ["puzzle", "casual"],
+    "thumbnail": "/thumbs/neon-simon.webp",
+    "description": "Watch the glowing sequence, then play it back. One more color every round.",
+    "controls": ["mouse", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 1000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/neon-simon.txt"
+    }
+  },
+  {
+    "slug": "tic-tac-toe",
+    "title": "Tic-Tac-Toe",
+    "version": "v1",
+    "categories": ["board", "strategy"],
+    "thumbnail": "/thumbs/tic-tac-toe.webp",
+    "description": "Three in a row. Take on an unbeatable computer or a friend on the same device.",
+    "controls": ["mouse", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": false,
+    "maxScore": 0,
+    "needsNickname": false,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/tic-tac-toe.txt"
+    }
+  },
+  {
+    "slug": "connect-four",
+    "title": "Connect Four",
+    "version": "v1",
+    "categories": ["board", "strategy"],
+    "thumbnail": "/thumbs/connect-four.webp",
+    "description": "Drop discs and line up four. Play the computer or a friend, two colors, one grid.",
+    "controls": ["mouse", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": false,
+    "maxScore": 0,
+    "needsNickname": false,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/connect-four.txt"
+    }
+  },
+  {
+    "slug": "box-push",
+    "title": "Box Push",
+    "version": "v1",
+    "categories": ["puzzle", "strategy"],
+    "thumbnail": "/thumbs/box-push.webp",
+    "description": "A neon Sokoban. Shove every crate onto a pad across five hand-built levels.",
+    "controls": ["keyboard", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": false,
+    "maxScore": 0,
+    "needsNickname": false,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/box-push.txt"
+    }
   }
 ]

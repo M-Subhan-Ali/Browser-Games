@@ -29,7 +29,7 @@
   <span>🎯 <span id="score">0</span></span>
   <span>⏱ <span id="time">60</span>s</span>
   <span>🔫 <span id="ammo">6</span>/6</span>
-  <span>❤ <span id="lives">3</span></span>
+  <span>❤ <span id="lives">5</span></span>
 </div>
 <div id="combo"></div>
 <div id="wrap"><canvas id="c" width="520" height="560"></canvas></div>
@@ -47,7 +47,7 @@ let aim={x:W/2,y:H/2}, shots=[], pops=[], lastSpawn=0, startT=0, muzzle=0;
 let hits=0, fired=0;
 
 function reset(){
-  targets=[]; score=0; timeLeft=60; lives=3; ammo=MAG; reloading=false;
+  targets=[]; score=0; timeLeft=60; lives=5; ammo=MAG; reloading=false;
   combo=0; shots=[]; pops=[]; lastSpawn=0; hits=0; fired=0; startT=performance.now();
   updateHud();
 }

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Whack-a-Mole</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: manipulation; }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; padding: 12px; box-sizing: border-box; }
+  #hud { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+  #hud .s { color: #22d3ee; } #hud .t { color: #f472b6; }
+  #grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    width: min(92vw, 420px); aspect-ratio: 1; }
+  .hole { position: relative; background: #0d0d16; border-radius: 14px;
+    border: 1px solid #1b1b2a; overflow: hidden; cursor: pointer; }
+  .mole { position: absolute; inset: 14%; border-radius: 50%; transform: translateY(120%);
+    transition: transform .09s ease-out; background: radial-gradient(circle at 35% 30%, #67e8f9, #22d3ee 60%, #0891b2);
+    box-shadow: 0 0 18px #22d3ee; }
+  .hole.up .mole { transform: translateY(0); }
+  .hole.bomb .mole { background: radial-gradient(circle at 35% 30%, #fda4af, #f43f5e 60%, #9f1239);
+    box-shadow: 0 0 18px #f43f5e; }
+  .hole.hit .mole { transform: translateY(0) scale(.7); opacity: .4; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.9); text-align: center; padding: 20px; }
+  button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 10px 20px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  h1 { margin: 0; font-size: 28px; } p { margin: 0; color: #a1a1b5; max-width: 320px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud"><span class="s">Score <span id="score">0</span></span> &nbsp;·&nbsp; <span class="t">Time <span id="time">30</span>s</span></div>
+  <div id="grid"></div>
+</div>
+<div id="msg">
+  <h1 id="title">Whack-a-Mole</h1>
+  <p id="sub">Tap the cyan moles. Avoid the red bombs. 30 seconds!</p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const grid = document.getElementById('grid');
+const holes = [];
+for (let i = 0; i < 9; i++) {
+  const h = document.createElement('div');
+  h.className = 'hole';
+  h.innerHTML = '<div class="mole"></div>';
+  h.addEventListener('pointerdown', () => whack(i));
+  grid.appendChild(h); holes.push(h);
+}
+let score, timeLeft, best = 0, running = false;
+let popTimer = null, clockTimer = null, activeTimers = [];
+
+function updateHud() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('time').textContent = timeLeft;
+}
+function clearAll() {
+  activeTimers.forEach(clearTimeout); activeTimers = [];
+  holes.forEach(h => h.className = 'hole');
+}
+function popOne() {
+  if (!running) return;
+  const free = holes.map((h, i) => i).filter(i => !holes[i].classList.contains('up'));
+  if (free.length) {
+    const i = free[(Math.random() * free.length) | 0];
+    const bomb = Math.random() < 0.22;
+    holes[i].classList.add('up');
+    if (bomb) holes[i].classList.add('bomb');
+    const life = 650 + Math.random() * 500;
+    const t = setTimeout(() => { holes[i].className = 'hole'; }, life);
+    activeTimers.push(t);
+  }
+  const gap = Math.max(260, 650 - (30 - timeLeft) * 12);
+  popTimer = setTimeout(popOne, gap);
+}
+function whack(i) {
+  if (!running) return;
+  const h = holes[i];
+  if (!h.classList.contains('up') || h.classList.contains('hit')) return;
+  if (h.classList.contains('bomb')) {
+    score = Math.max(0, score - 5);
+    h.classList.add('hit');
+  } else {
+    score += 1; h.classList.add('hit');
+  }
+  updateHud();
+  setTimeout(() => { h.className = 'hole'; }, 120);
+}
+function tick() {
+  timeLeft--; updateHud();
+  if (timeLeft <= 0) gameOver();
+}
+function start() {
+  document.getElementById('msg').style.display = 'none';
+  score = 0; timeLeft = 30; updateHud();
+  clearAll(); running = true; Portal.gameplayStart();
+  clockTimer = setInterval(tick, 1000);
+  popOne();
+}
+async function gameOver() {
+  running = false;
+  clearInterval(clockTimer); clearTimeout(popTimer); clearAll();
+  if (score > best) { best = score; Portal.save({ best: best }); }
+  Portal.submitScore(score);
+  Portal.gameplayStop();
+  show('Time!', 'You whacked ' + score + ' · Best ' + best, 'Play again');
+}
+function show(t, s, b) {
+  document.getElementById('title').textContent = t;
+  document.getElementById('sub').textContent = s;
+  document.getElementById('btn').textContent = b;
+  document.getElementById('msg').style.display = 'flex';
+}
+document.getElementById('btn').addEventListener('click', start);
+
+(async function init() {
+  await Portal.ready();
+  const saved = await Portal.load();
+  if (saved && saved.best) best = saved.best;
+  score = 0; timeLeft = 30; updateHud();
+  show('Whack-a-Mole', 'Tap the cyan moles. Red bombs cost 5 points. 30 seconds!', 'Play');
+})();
+</script>
+</body>
+</html>

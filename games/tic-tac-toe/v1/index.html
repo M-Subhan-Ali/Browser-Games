@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Tic-Tac-Toe</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: manipulation; }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; padding: 12px; box-sizing: border-box; }
+  #status { font-size: 20px; font-weight: 700; min-height: 26px; letter-spacing: .5px; }
+  #board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    width: min(84vw, 360px); aspect-ratio: 1; }
+  .cell { background: #0d0d16; border: 1px solid #1b1b2a; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; font-size: 15vw;
+    max-font-size: 60px; font-weight: 800; cursor: pointer; user-select: none; }
+  @media (min-width: 480px) { .cell { font-size: 60px; } }
+  .cell.x { color: #22d3ee; text-shadow: 0 0 16px #22d3ee; }
+  .cell.o { color: #f472b6; text-shadow: 0 0 16px #f472b6; }
+  .cell.win { background: #15151f; box-shadow: 0 0 0 2px #a855f7 inset; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  button { background: #0d0d16; color: #ededf2; border: 1px solid #2a2a3c; border-radius: 8px;
+    padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  button.on { background: #22d3ee; color: #0a0a0f; border-color: #22d3ee; }
+  button.primary { background: #22d3ee; color: #0a0a0f; border-color: #22d3ee; }
+  .score { font-size: 14px; color: #a1a1b5; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="status">Your turn</div>
+  <div id="board"></div>
+  <div class="controls">
+    <button id="mAi" class="on">vs Computer</button>
+    <button id="m2p">2 Players</button>
+    <button id="reset" class="primary">New game</button>
+  </div>
+  <div class="score" id="score">X 0 · O 0 · Draws 0</div>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+let board, turn, over, vsAi = true, lock = false;
+let tally = { X: 0, O: 0, D: 0 };
+const cells = [];
+for (let i = 0; i < 9; i++) {
+  const c = document.createElement('div');
+  c.className = 'cell';
+  c.addEventListener('click', () => play(i));
+  boardEl.appendChild(c); cells.push(c);
+}
+function render() {
+  for (let i = 0; i < 9; i++) {
+    cells[i].textContent = board[i] || '';
+    cells[i].className = 'cell' + (board[i] ? ' ' + board[i].toLowerCase() : '');
+  }
+}
+function winner(b) {
+  for (const [a, c, d] of WINS) if (b[a] && b[a] === b[c] && b[a] === b[d]) return { who: b[a], line: [a, c, d] };
+  if (b.every(Boolean)) return { who: 'D', line: [] };
+  return null;
+}
+function setStatus() {
+  if (over) return;
+  if (vsAi) statusEl.textContent = turn === 'X' ? 'Your turn' : 'Computer thinking…';
+  else statusEl.textContent = turn + ' to move';
+}
+function play(i) {
+  if (over || lock || board[i]) return;
+  if (vsAi && turn !== 'X') return;
+  board[i] = turn; render();
+  const w = winner(board);
+  if (w) return finish(w);
+  turn = turn === 'X' ? 'O' : 'X'; setStatus();
+  if (vsAi && turn === 'O') { lock = true; setTimeout(aiMove, 320); }
+}
+function aiMove() {
+  const i = bestMove(board, 'O');
+  board[i] = 'O'; render();
+  lock = false;
+  const w = winner(board);
+  if (w) return finish(w);
+  turn = 'X'; setStatus();
+}
+// Minimax — the computer is unbeatable.
+function bestMove(b, player) {
+  let bestScore = -Infinity, move = -1;
+  for (let i = 0; i < 9; i++) {
+    if (b[i]) continue;
+    b[i] = player;
+    const s = minimax(b, false);
+    b[i] = '';
+    if (s > bestScore) { bestScore = s; move = i; }
+  }
+  return move;
+}
+function minimax(b, maximizing) {
+  const w = winner(b);
+  if (w) { if (w.who === 'O') return 10; if (w.who === 'X') return -10; return 0; }
+  if (maximizing) {
+    let best = -Infinity;
+    for (let i = 0; i < 9; i++) if (!b[i]) { b[i] = 'O'; best = Math.max(best, minimax(b, false)); b[i] = ''; }
+    return best;
+  } else {
+    let best = Infinity;
+    for (let i = 0; i < 9; i++) if (!b[i]) { b[i] = 'X'; best = Math.min(best, minimax(b, true)); b[i] = ''; }
+    return best;
+  }
+}
+function finish(w) {
+  over = true; lock = false;
+  if (w.who === 'D') { tally.D++; statusEl.textContent = 'Draw'; }
+  else {
+    tally[w.who]++;
+    w.line.forEach(i => cells[i].classList.add('win'));
+    if (vsAi) statusEl.textContent = w.who === 'X' ? 'You win!' : 'Computer wins';
+    else statusEl.textContent = w.who + ' wins!';
+  }
+  document.getElementById('score').textContent = `X ${tally.X} · O ${tally.O} · Draws ${tally.D}`;
+  Portal.save({ tally: tally, vsAi: vsAi });
+  Portal.gameplayStop();
+}
+function newGame() {
+  board = Array(9).fill(''); turn = 'X'; over = false; lock = false;
+  render(); setStatus(); Portal.gameplayStart();
+}
+function setMode(ai) {
+  vsAi = ai;
+  document.getElementById('mAi').classList.toggle('on', ai);
+  document.getElementById('m2p').classList.toggle('on', !ai);
+  newGame();
+}
+document.getElementById('mAi').addEventListener('click', () => setMode(true));
+document.getElementById('m2p').addEventListener('click', () => setMode(false));
+document.getElementById('reset').addEventListener('click', newGame);
+
+(async function init() {
+  await Portal.ready();
+  const saved = await Portal.load();
+  if (saved && saved.tally) { tally = saved.tally; if (typeof saved.vsAi === 'boolean') vsAi = saved.vsAi; }
+  document.getElementById('score').textContent = `X ${tally.X} · O ${tally.O} · Draws ${tally.D}`;
+  setMode(vsAi);
+})();
+</script>
+</body>
+</html>
