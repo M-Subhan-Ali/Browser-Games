@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Brick Breaker</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { background: #0d0d16; border-radius: 8px; max-width: 100%; max-height: 100%; }
+  #hud { position: fixed; top: 10px; left: 12px; font-size: 16px; font-weight: 700; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.85); text-align: center; }
+  button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 10px 20px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  h1 { margin: 0; font-size: 28px; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="420" height="520"></canvas></div>
+<div id="hud">Score: <span id="score">0</span> · Lives: <span id="lives">3</span></div>
+<div id="msg">
+  <h1 id="title">Brick Breaker</h1>
+  <p id="sub">Move mouse / drag to control the paddle</p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const COLS = 7, ROWS = 5, BW = W/COLS, BH = 22, TOP = 50;
+let bricks, paddle, ball, score, lives, running = false, raf = null;
+
+function reset() {
+  score = 0; lives = 3;
+  paddle = { w: 80, h: 12, x: W/2 - 40 };
+  resetBall();
+  bricks = [];
+  for (let r=0;r<ROWS;r++) for (let col=0;col<COLS;col++)
+    bricks.push({x: col*BW, y: TOP + r*BH, alive: true, hue: 180 + r*25});
+  updateHud();
+}
+function resetBall() { ball = { x: W/2, y: H-60, dx: 3, dy: -3, r: 7 }; }
+function updateHud() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('lives').textContent = lives;
+}
+function loop() {
+  ball.x += ball.dx; ball.y += ball.dy;
+  if (ball.x < ball.r || ball.x > W-ball.r) ball.dx *= -1;
+  if (ball.y < ball.r) ball.dy *= -1;
+  // paddle
+  if (ball.y > H-30-ball.r && ball.y < H-30+ball.r &&
+      ball.x > paddle.x && ball.x < paddle.x+paddle.w) {
+    ball.dy = -Math.abs(ball.dy);
+    ball.dx = ((ball.x - (paddle.x+paddle.w/2)) / (paddle.w/2)) * 4;
+  }
+  if (ball.y > H) {
+    lives--; updateHud();
+    if (lives <= 0) return gameOver(false);
+    resetBall();
+  }
+  // bricks
+  for (const b of bricks) {
+    if (!b.alive) continue;
+    if (ball.x > b.x && ball.x < b.x+BW-2 && ball.y > b.y && ball.y < b.y+BH-2) {
+      b.alive = false; ball.dy *= -1; score += 10; updateHud();
+      if (bricks.every(x=>!x.alive)) return gameOver(true);
+      break;
+    }
+  }
+  draw();
+  raf = requestAnimationFrame(loop);
+}
+function draw() {
+  ctx.fillStyle = '#0d0d16'; ctx.fillRect(0,0,W,H);
+  for (const b of bricks) {
+    if (!b.alive) continue;
+    ctx.fillStyle = 'hsl(' + b.hue + ' 70% 50%)';
+    ctx.fillRect(b.x+2, b.y+2, BW-4, BH-4);
+  }
+  ctx.fillStyle = '#22d3ee'; ctx.shadowColor='#22d3ee'; ctx.shadowBlur=10;
+  ctx.fillRect(paddle.x, H-30, paddle.w, paddle.h);
+  ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, 7); ctx.fill();
+  ctx.shadowBlur = 0;
+}
+async function gameOver(win) {
+  running = false; cancelAnimationFrame(raf);
+  Portal.submitScore(score); Portal.gameplayStop();
+  show(win ? 'You cleared it!' : 'Game Over', 'Score: ' + score, 'Play again');
+}
+function show(t, s, b) {
+  document.getElementById('title').textContent = t;
+  document.getElementById('sub').textContent = s;
+  document.getElementById('btn').textContent = b;
+  document.getElementById('msg').style.display = 'flex';
+}
+function start() {
+  document.getElementById('msg').style.display = 'none';
+  reset(); running = true; Portal.gameplayStart();
+  cancelAnimationFrame(raf); loop();
+}
+function movePaddle(clientX) {
+  const rect = cv.getBoundingClientRect();
+  const scale = W / rect.width;
+  let x = (clientX - rect.left) * scale - paddle.w/2;
+  paddle.x = Math.max(0, Math.min(W-paddle.w, x));
+}
+cv.addEventListener('mousemove', e => running && movePaddle(e.clientX));
+cv.addEventListener('touchmove', e => { if(running){ movePaddle(e.touches[0].clientX); e.preventDefault(); } }, {passive:false});
+document.getElementById('btn').addEventListener('click', start);
+
+(async function init() {
+  await Portal.ready();
+  reset(); draw();
+  show('Brick Breaker', 'Move mouse / drag to control the paddle', 'Play');
+})();
+</script>
+</body>
+</html>

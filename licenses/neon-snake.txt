@@ -1,0 +1,12 @@
+Game: neon-snake
+Author: Browser Games Portal
+License: MIT
+
+Copyright (c) 2026 Browser Games Portal
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software, to deal in the software without restriction under the MIT
+License terms.
+
+Assets: all visuals are generated at runtime via canvas; no third-party art,
+audio, fonts or trademarks are included.

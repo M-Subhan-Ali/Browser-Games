@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Neon Blocks</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; gap: 18px; }
+  canvas { background: #0d0d16; border-radius: 8px; max-height: 92vh; }
+  #side { font-size: 15px; }
+  #side b { font-size: 22px; }
+  #ctrls { position: fixed; bottom: 10px; left: 0; right: 0; display: none;
+    justify-content: center; gap: 8px; }
+  #ctrls button { width: 60px; height: 48px; font-size: 20px; }
+  #hud { position: fixed; top: 10px; left: 12px; font-size: 16px; font-weight: 700; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.85); text-align: center; }
+  button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 10px 16px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  h1 { margin: 0; font-size: 28px; }
+</style>
+</head>
+<body>
+<div id="hud">Score: <span id="score">0</span> · Lines: <span id="lines">0</span></div>
+<div id="wrap">
+  <canvas id="c" width="240" height="480"></canvas>
+</div>
+<div id="ctrls">
+  <button data-k="left">◀</button>
+  <button data-k="rot">⟳</button>
+  <button data-k="right">▶</button>
+  <button data-k="down">▼</button>
+</div>
+<div id="msg">
+  <h1 id="title">Neon Blocks</h1>
+  <p id="sub">Arrows to move/rotate · swipe or buttons on mobile</p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const COLS=10, ROWS=20, S=cv.width/COLS;
+const SHAPES={
+  I:[[1,1,1,1]], O:[[1,1],[1,1]], T:[[0,1,0],[1,1,1]],
+  S:[[0,1,1],[1,1,0]], Z:[[1,1,0],[0,1,1]], J:[[1,0,0],[1,1,1]], L:[[0,0,1],[1,1,1]] };
+const HUE={I:185,O:50,T:280,S:140,Z:0,J:220,L:30};
+let board, cur, px, py, score, lines, running=false, dropTimer=null, speed=600;
+
+function newBoard(){ return Array.from({length:ROWS},()=>Array(COLS).fill(null)); }
+function spawn(){
+  const keys=Object.keys(SHAPES); const k=keys[(Math.random()*keys.length)|0];
+  cur={k, m:SHAPES[k].map(r=>r.slice())}; px=(COLS>>1)-((cur.m[0].length)>>1); py=0;
+  if(collide(px,py,cur.m)) gameOver();
+}
+function collide(x,y,m){
+  for(let r=0;r<m.length;r++)for(let c=0;c<m[r].length;c++){
+    if(!m[r][c])continue; const nx=x+c, ny=y+r;
+    if(nx<0||nx>=COLS||ny>=ROWS)return true;
+    if(ny>=0&&board[ny][nx])return true; } return false;
+}
+function merge(){ for(let r=0;r<cur.m.length;r++)for(let c=0;c<cur.m[r].length;c++)
+  if(cur.m[r][c]&&py+r>=0)board[py+r][px+c]=HUE[cur.k]; }
+function clearLines(){
+  let n=0;
+  for(let r=ROWS-1;r>=0;r--){ if(board[r].every(x=>x!==null)){ board.splice(r,1);
+    board.unshift(Array(COLS).fill(null)); n++; r++; } }
+  if(n){ lines+=n; score+=[0,100,300,500,800][n]; updateHud();
+    speed=Math.max(120,600-lines*8); restartTimer(); }
+}
+function rotate(){ const m=cur.m, h=m.length, w=m[0].length;
+  const nm=Array.from({length:w},()=>Array(h).fill(0));
+  for(let r=0;r<h;r++)for(let c=0;c<w;c++)nm[c][h-1-r]=m[r][c];
+  if(!collide(px,py,nm))cur.m=nm; }
+function tick(){ if(!collide(px,py+1,cur.m)){py++;} else { merge(); clearLines(); spawn(); } draw(); }
+function hardMove(dx){ if(!collide(px+dx,py,cur.m))px+=dx; draw(); }
+function softDrop(){ if(!collide(px,py+1,cur.m)){py++;score++;updateHud();draw();} }
+function updateHud(){ document.getElementById('score').textContent=score;
+  document.getElementById('lines').textContent=lines; }
+function cell(x,y,hue){ ctx.fillStyle='hsl('+hue+' 70% 55%)';
+  ctx.fillRect(x*S+1,y*S+1,S-2,S-2); }
+function draw(){
+  ctx.fillStyle='#0d0d16'; ctx.fillRect(0,0,cv.width,cv.height);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(board[r][c]!==null)cell(c,r,board[r][c]);
+  for(let r=0;r<cur.m.length;r++)for(let c=0;c<cur.m[r].length;c++)
+    if(cur.m[r][c]&&py+r>=0)cell(px+c,py+r,HUE[cur.k]);
+}
+function restartTimer(){ clearInterval(dropTimer); dropTimer=setInterval(()=>running&&tick(),speed); }
+async function gameOver(){ running=false; clearInterval(dropTimer);
+  Portal.submitScore(score); Portal.gameplayStop();
+  show('Game Over','Score: '+score,'Play again'); }
+function show(t,s,b){ document.getElementById('title').textContent=t;
+  document.getElementById('sub').textContent=s; document.getElementById('btn').textContent=b;
+  document.getElementById('msg').style.display='flex'; }
+function start(){ document.getElementById('msg').style.display='none';
+  board=newBoard(); score=0; lines=0; speed=600; updateHud(); spawn();
+  running=true; Portal.gameplayStart(); restartTimer(); draw(); }
+document.addEventListener('keydown',e=>{
+  if(!running)return;
+  if(e.key==='ArrowLeft')hardMove(-1);
+  else if(e.key==='ArrowRight')hardMove(1);
+  else if(e.key==='ArrowUp'){rotate();draw();}
+  else if(e.key==='ArrowDown')softDrop();
+  if(e.key.startsWith('Arrow'))e.preventDefault();
+});
+document.getElementById('ctrls').addEventListener('click',e=>{
+  const k=e.target.dataset.k; if(!k||!running)return;
+  if(k==='left')hardMove(-1); else if(k==='right')hardMove(1);
+  else if(k==='rot'){rotate();draw();} else if(k==='down')softDrop();
+});
+let ts=null;
+cv.addEventListener('touchstart',e=>{ts=e.touches[0];},{passive:true});
+cv.addEventListener('touchend',e=>{ if(!ts||!running)return; const t=e.changedTouches[0];
+  const dx=t.clientX-ts.clientX, dy=t.clientY-ts.clientY;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<20){rotate();draw();}
+  else if(Math.abs(dx)>Math.abs(dy))hardMove(dx>0?1:-1); else if(dy>0)softDrop();
+  ts=null; },{passive:true});
+document.getElementById('btn').addEventListener('click',start);
+if('ontouchstart' in window) document.getElementById('ctrls').style.display='flex';
+
+(async function(){ await Portal.ready();
+  board=newBoard(); score=0; lines=0; spawn(); draw();
+  show('Neon Blocks','Arrows to move/rotate · swipe or buttons on mobile','Play');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Space Blaster</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { background: #06060c; border-radius: 8px; max-width: 100%; max-height: 100%; }
+  #hud { position: fixed; top: 10px; left: 12px; font-size: 16px; font-weight: 700; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.85); text-align: center; }
+  button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 10px 20px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  h1 { margin: 0; font-size: 28px; }
+</style>
+</head>
+<body>
+<div id="hud">Score: <span id="score">0</span> · Lives: <span id="lives">3</span></div>
+<div id="wrap"><canvas id="c" width="480" height="520"></canvas></div>
+<div id="msg">
+  <h1 id="title">Space Blaster</h1>
+  <p id="sub">← → or drag to move · Space / tap to shoot</p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const W=cv.width, H=cv.height;
+let ship, rocks, bullets, score, lives, running=false, raf=null, frame, left=false, right=false;
+
+function reset(){ ship={x:W/2,y:H-50,w:26}; rocks=[]; bullets=[]; score=0; lives=3; frame=0; updateHud(); }
+function updateHud(){ document.getElementById('score').textContent=score;
+  document.getElementById('lives').textContent=lives; }
+function spawnRock(){
+  const r=14+Math.random()*22;
+  rocks.push({x:r+Math.random()*(W-2*r), y:-r, r, vy:1.4+Math.random()*1.8+score/4000,
+    vx:(Math.random()-0.5)*1.2, hue:(Math.random()*60)|0+300}); }
+function shoot(){ if(running) bullets.push({x:ship.x, y:ship.y-18, vy:-8}); }
+function loop(){
+  frame++;
+  if(frame%Math.max(22,60-((score/300)|0))===0) spawnRock();
+  if(left) ship.x-=5; if(right) ship.x+=5;
+  ship.x=Math.max(ship.w/2, Math.min(W-ship.w/2, ship.x));
+  bullets.forEach(b=>b.y+=b.vy); bullets=bullets.filter(b=>b.y>-10);
+  for(const rk of rocks){ rk.x+=rk.vx; rk.y+=rk.vy;
+    if(rk.x<rk.r||rk.x>W-rk.r)rk.vx*=-1; }
+  // bullet hits
+  for(const rk of rocks){ for(const b of bullets){
+    if(Math.hypot(rk.x-b.x,rk.y-b.y)<rk.r){ rk.dead=true; b.dead=true; score+=10; updateHud(); } } }
+  // ship hit / passed
+  for(const rk of rocks){
+    if(Math.hypot(rk.x-ship.x,rk.y-ship.y)<rk.r+ship.w/2-4){ rk.dead=true; hit(); }
+    if(rk.y-rk.r>H)rk.dead=true; }
+  rocks=rocks.filter(r=>!r.dead); bullets=bullets.filter(b=>!b.dead);
+  draw();
+  if(running) raf=requestAnimationFrame(loop);
+}
+function hit(){ lives--; updateHud(); if(lives<=0)gameOver(); }
+function draw(){
+  ctx.fillStyle='#06060c'; ctx.fillRect(0,0,W,H);
+  // stars
+  ctx.fillStyle='#1b1b29'; for(let i=0;i<40;i++){ const y=((frame*1.5+i*53)%H); ctx.fillRect((i*97)%W, y, 2, 2); }
+  // rocks
+  ctx.shadowBlur=10;
+  for(const rk of rocks){ ctx.fillStyle='hsl('+rk.hue+' 70% 55%)'; ctx.shadowColor='hsl('+rk.hue+' 70% 55%)';
+    ctx.beginPath(); ctx.arc(rk.x,rk.y,rk.r,0,7); ctx.fill(); }
+  // bullets
+  ctx.fillStyle='#67e8f9'; ctx.shadowColor='#22d3ee';
+  for(const b of bullets){ ctx.fillRect(b.x-2,b.y-8,4,12); }
+  // ship
+  ctx.shadowColor='#22d3ee'; ctx.fillStyle='#22d3ee';
+  ctx.beginPath(); ctx.moveTo(ship.x,ship.y-16); ctx.lineTo(ship.x-14,ship.y+14);
+  ctx.lineTo(ship.x+14,ship.y+14); ctx.closePath(); ctx.fill();
+  ctx.shadowBlur=0;
+}
+async function gameOver(){ running=false; cancelAnimationFrame(raf);
+  Portal.submitScore(score); Portal.gameplayStop();
+  show('Game Over','Score: '+score,'Play again'); }
+function show(t,s,b){ document.getElementById('title').textContent=t;
+  document.getElementById('sub').textContent=s; document.getElementById('btn').textContent=b;
+  document.getElementById('msg').style.display='flex'; }
+function start(){ document.getElementById('msg').style.display='none';
+  reset(); running=true; Portal.gameplayStart(); cancelAnimationFrame(raf); loop(); }
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft')left=true; else if(e.key==='ArrowRight')right=true;
+  else if(e.code==='Space'){shoot(); e.preventDefault();} });
+document.addEventListener('keyup',e=>{
+  if(e.key==='ArrowLeft')left=false; else if(e.key==='ArrowRight')right=false; });
+function moveTo(clientX){ const r=cv.getBoundingClientRect(); ship.x=(clientX-r.left)*(W/r.width); }
+cv.addEventListener('mousemove',e=>running&&moveTo(e.clientX));
+cv.addEventListener('mousedown',shoot);
+cv.addEventListener('touchstart',e=>{ if(running){moveTo(e.touches[0].clientX); shoot(); e.preventDefault();} },{passive:false});
+cv.addEventListener('touchmove',e=>{ if(running){moveTo(e.touches[0].clientX); e.preventDefault();} },{passive:false});
+document.getElementById('btn').addEventListener('click',start);
+
+(async function(){ await Portal.ready(); reset(); draw();
+  show('Space Blaster','← → or drag to move · Space / tap to shoot','Play'); })();
+</script>
+</body>
+</html>

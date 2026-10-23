@@ -1,0 +1,212 @@
+[
+  {
+    "slug": "neon-snake",
+    "title": "Neon Snake",
+    "version": "v1",
+    "categories": ["arcade"],
+    "thumbnail": "/thumbs/neon-snake.webp",
+    "description": "Classic snake with a neon twist. Eat, grow, don't bite yourself.",
+    "controls": ["keyboard", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 100000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/neon-snake.txt"
+    }
+  },
+  {
+    "slug": "brick-breaker",
+    "title": "Brick Breaker",
+    "version": "v1",
+    "categories": ["arcade"],
+    "thumbnail": "/thumbs/brick-breaker.webp",
+    "description": "Bounce the ball, clear the wall. A neon take on the classic breakout.",
+    "controls": ["keyboard", "mouse", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 50000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/brick-breaker.txt"
+    }
+  },
+  {
+    "slug": "neon-jump",
+    "title": "Neon Jump",
+    "version": "v1",
+    "categories": ["arcade", "casual"],
+    "thumbnail": "/thumbs/neon-jump.webp",
+    "description": "Tap to fly through the gaps. One more try, every time.",
+    "controls": ["keyboard", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 10000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/neon-jump.txt"
+    }
+  },
+  {
+    "slug": "memory-match",
+    "title": "Memory Match",
+    "version": "v1",
+    "categories": ["puzzle", "casual"],
+    "thumbnail": "/thumbs/memory-match.webp",
+    "description": "Flip the cards, find the pairs, beat the clock.",
+    "controls": ["mouse", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": false,
+    "maxScore": 0,
+    "needsNickname": false,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/memory-match.txt"
+    }
+  },
+  {
+    "slug": "2048",
+    "title": "2048",
+    "version": "v1",
+    "categories": ["puzzle"],
+    "thumbnail": "/thumbs/2048.webp",
+    "description": "Slide the tiles, merge the numbers, reach 2048 — and keep going.",
+    "controls": ["keyboard", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 1000000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/2048.txt"
+    }
+  },
+  {
+    "slug": "neon-blocks",
+    "title": "Neon Blocks",
+    "version": "v1",
+    "categories": ["arcade", "puzzle"],
+    "thumbnail": "/thumbs/neon-blocks.webp",
+    "description": "Stack the falling blocks, clear the lines, don't top out.",
+    "controls": ["keyboard", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 999999,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/neon-blocks.txt"
+    }
+  },
+  {
+    "slug": "space-blaster",
+    "title": "Space Blaster",
+    "version": "v1",
+    "categories": ["arcade", "action"],
+    "thumbnail": "/thumbs/space-blaster.webp",
+    "description": "Fly, dodge and shoot through endless waves of neon asteroids.",
+    "controls": ["keyboard", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 200000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/space-blaster.txt"
+    }
+  },
+  {
+    "slug": "minesweeper",
+    "title": "Minesweeper",
+    "version": "v1",
+    "categories": ["puzzle", "strategy"],
+    "thumbnail": "/thumbs/minesweeper.webp",
+    "description": "Clear the field without hitting a mine. Flag what you fear.",
+    "controls": ["mouse", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": false,
+    "maxScore": 0,
+    "needsNickname": false,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/minesweeper.txt"
+    }
+  },
+  {
+    "slug": "ludo",
+    "title": "Ludo",
+    "version": "v2",
+    "categories": ["board", "casual"],
+    "thumbnail": "/thumbs/ludo.webp",
+    "description": "The classic board race for 2 to 4 players on one device.",
+    "controls": ["mouse", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": false,
+    "maxScore": 0,
+    "needsNickname": false,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/ludo.txt"
+    }
+  },
+  {
+    "slug": "neon-sniper",
+    "title": "Neon Sniper",
+    "version": "v1",
+    "categories": ["action", "arcade"],
+    "thumbnail": "/thumbs/neon-sniper.webp",
+    "description": "Steady your scope and tag the targets before they vanish. Headshots score big.",
+    "controls": ["mouse", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 500000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/neon-sniper.txt"
+    }
+  }
+]

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Memory Match</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: manipulation; }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px; padding: 16px; }
+  #hud { font-size: 16px; font-weight: 700; }
+  #grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    width: min(92vw, 420px); }
+  .card { aspect-ratio: 1; border-radius: 10px; background: #1b1b29; border: 1px solid #2a2a3d;
+    display: flex; align-items: center; justify-content: center; font-size: 30px;
+    cursor: pointer; user-select: none; transition: transform .15s, background .15s; }
+  .card.flipped { background: #13131d; }
+  .card.matched { background: #0d2a2e; border-color: #22d3ee; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.85); text-align: center; }
+  button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 10px 20px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  h1 { margin: 0; font-size: 28px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">Moves: <span id="moves">0</span> · Pairs: <span id="pairs">0</span>/8</div>
+  <div id="grid"></div>
+</div>
+<div id="msg">
+  <h1 id="title">Memory Match</h1>
+  <p id="sub">Flip cards to find all pairs</p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const EMOJI = ['🍒','⭐','⚡','🌙','🔥','💎','🎲','🚀'];
+const grid = document.getElementById('grid');
+let cards, first = null, lock = false, moves, pairs, running = false;
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];} return a; }
+function updateHud(){ document.getElementById('moves').textContent=moves;
+  document.getElementById('pairs').textContent=pairs; }
+function build() {
+  moves = 0; pairs = 0; first = null; lock = false; updateHud();
+  const deck = shuffle([...EMOJI, ...EMOJI].map((e,i)=>({e,id:i})));
+  grid.innerHTML = '';
+  cards = deck.map(d => {
+    const el = document.createElement('div');
+    el.className = 'card'; el.dataset.e = d.e;
+    el.addEventListener('click', () => flip(el));
+    grid.appendChild(el);
+    return el;
+  });
+}
+function flip(el) {
+  if (!running || lock || el.classList.contains('matched') || el === first) return;
+  el.textContent = el.dataset.e; el.classList.add('flipped');
+  if (!first) { first = el; return; }
+  moves++; updateHud();
+  if (first.dataset.e === el.dataset.e) {
+    first.classList.add('matched'); el.classList.add('matched');
+    first = null; pairs++; updateHud();
+    if (pairs === 8) win();
+  } else {
+    lock = true;
+    const a = first; first = null;
+    setTimeout(() => {
+      a.textContent=''; el.textContent='';
+      a.classList.remove('flipped'); el.classList.remove('flipped');
+      lock = false;
+    }, 700);
+  }
+}
+async function win() {
+  running = false;
+  Portal.gameplayStop();
+  show('Solved!', 'Finished in ' + moves + ' moves', 'Play again');
+}
+function show(t, s, b) {
+  document.getElementById('title').textContent = t;
+  document.getElementById('sub').textContent = s;
+  document.getElementById('btn').textContent = b;
+  document.getElementById('msg').style.display = 'flex';
+}
+function start() {
+  document.getElementById('msg').style.display = 'none';
+  build(); running = true; Portal.gameplayStart();
+}
+document.getElementById('btn').addEventListener('click', start);
+
+(async function init() {
+  await Portal.ready();
+  build();
+  show('Memory Match', 'Flip cards to find all pairs', 'Play');
+})();
+</script>
+</body>
+</html>

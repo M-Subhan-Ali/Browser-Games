@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Minesweeper</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: manipulation; }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px; padding: 12px; }
+  #hud { font-size: 16px; font-weight: 700; display: flex; gap: 16px; align-items: center; }
+  #flag { background:#1b1b29; border:1px solid #2a2a3d; color:#ededf2; border-radius:6px;
+    padding:4px 10px; cursor:pointer; font-size:14px; }
+  #flag.on { background:#a855f7; color:#0a0a0f; }
+  #grid { display: grid; gap: 3px; }
+  .c { width: 30px; height: 30px; display:flex; align-items:center; justify-content:center;
+    background:#1b1b29; border:1px solid #2a2a3d; border-radius:4px; font-weight:800;
+    cursor:pointer; user-select:none; font-size:15px; }
+  .c.open { background:#0d0d16; cursor:default; }
+  .c.mine { background:#e11d48; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.85); text-align: center; }
+  button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 10px 20px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  h1 { margin: 0; font-size: 28px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span>💣 <span id="mines">0</span></span>
+    <button id="flag">🚩 Flag: off</button>
+    <span>⏱ <span id="time">0</span>s</span>
+  </div>
+  <div id="grid"></div>
+  <p style="color:#9a9ab5;font-size:13px;margin:0">Tap to reveal · toggle Flag to mark (or long-press)</p>
+</div>
+<div id="msg">
+  <h1 id="title">Minesweeper</h1>
+  <p id="sub">Clear the field without hitting a mine</p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const COLS=9, ROWS=9, MINES=10, NUMC=['','#22d3ee','#4ade80','#f59e0b','#f472b6','#f87171','#a855f7','#e2e8f0','#94a3b8'];
+const gridEl=document.getElementById('grid');
+let cells, revealed, flagged, over, won, flagMode=false, timer=null, secs=0, placed;
+
+function build(){
+  gridEl.style.gridTemplateColumns='repeat('+COLS+',30px)';
+  gridEl.innerHTML=''; cells=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const el=document.createElement('div'); el.className='c'; el.dataset.r=r; el.dataset.c=c;
+    el.addEventListener('click',()=>onReveal(r,c));
+    el.addEventListener('contextmenu',e=>{e.preventDefault(); toggleFlag(r,c);});
+    let lp; el.addEventListener('touchstart',()=>{ lp=setTimeout(()=>{toggleFlag(r,c); lp=null;},400); },{passive:true});
+    el.addEventListener('touchend',()=>{ if(lp){clearTimeout(lp);} },{passive:true});
+    gridEl.appendChild(el); cells.push(el);
+  }
+}
+function idx(r,c){ return r*COLS+c; }
+function reset(){
+  revealed=Array(ROWS*COLS).fill(false); flagged=Array(ROWS*COLS).fill(false);
+  mines=Array(ROWS*COLS).fill(false); over=false; won=false; placed=false; secs=0;
+  document.getElementById('mines').textContent=MINES; document.getElementById('time').textContent=0;
+  cells.forEach(e=>{ e.className='c'; e.textContent=''; });
+  clearInterval(timer);
+}
+let mines;
+function placeMines(sr,sc){
+  let n=0; while(n<MINES){ const r=(Math.random()*ROWS)|0, c=(Math.random()*COLS)|0;
+    if(mines[idx(r,c)]||(Math.abs(r-sr)<=1&&Math.abs(c-sc)<=1))continue; mines[idx(r,c)]=true; n++; }
+  placed=true; timer=setInterval(()=>{ secs++; document.getElementById('time').textContent=secs; },1000);
+}
+function count(r,c){ let n=0; for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+  const nr=r+dr,nc=c+dc; if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&mines[idx(nr,nc)])n++; } return n; }
+function toggleFlag(r,c){ if(over||revealed[idx(r,c)])return;
+  flagged[idx(r,c)]=!flagged[idx(r,c)];
+  cells[idx(r,c)].textContent=flagged[idx(r,c)]?'🚩':''; }
+function onReveal(r,c){
+  if(over)return;
+  if(flagMode){ toggleFlag(r,c); return; }
+  if(flagged[idx(r,c)])return;
+  if(!placed)placeMines(r,c);
+  reveal(r,c); check();
+}
+function reveal(r,c){
+  const i=idx(r,c); if(revealed[i]||flagged[i])return; revealed[i]=true;
+  const el=cells[i]; el.classList.add('open');
+  if(mines[i]){ el.classList.add('mine'); el.textContent='💣'; return boom(); }
+  const n=count(r,c);
+  if(n){ el.textContent=n; el.style.color=NUMC[n]; }
+  else { for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+    const nr=r+dr,nc=c+dc; if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS)reveal(nr,nc); } }
+}
+function boom(){ over=true; clearInterval(timer);
+  for(let i=0;i<mines.length;i++)if(mines[i]){ cells[i].classList.add('open'); cells[i].textContent='💣'; }
+  Portal.gameplayStop(); show('Boom! 💥','You hit a mine','Try again'); }
+function check(){ let safe=0; for(let i=0;i<revealed.length;i++)if(revealed[i]&&!mines[i])safe++;
+  if(safe===ROWS*COLS-MINES){ over=true; won=true; clearInterval(timer);
+    Portal.gameplayStop(); show('Cleared! 🎉','Time: '+secs+'s','Play again'); } }
+function show(t,s,b){ document.getElementById('title').textContent=t;
+  document.getElementById('sub').textContent=s; document.getElementById('btn').textContent=b;
+  document.getElementById('msg').style.display='flex'; }
+function start(){ document.getElementById('msg').style.display='none'; reset(); Portal.gameplayStart(); }
+document.getElementById('flag').addEventListener('click',()=>{ flagMode=!flagMode;
+  const b=document.getElementById('flag'); b.classList.toggle('on',flagMode);
+  b.textContent='🚩 Flag: '+(flagMode?'on':'off'); });
+document.getElementById('btn').addEventListener('click',start);
+
+(async function(){ await Portal.ready(); build(); reset();
+  show('Minesweeper','Clear the field without hitting a mine','Play'); })();
+</script>
+</body>
+</html>

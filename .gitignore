@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# next.js
+.next/
+out/
+
+# turbo
+.turbo/
+
+# production
+dist/
+
+# misc
+.DS_Store
+*.pem
+.env*
+!.env.example
+
+# logs
+npm-debug.log*
+pnpm-debug.log*
+
+# editor
+.vscode/
+.idea/
+
+# wrangler / cloudflare
+.wrangler/
+.dev.vars
