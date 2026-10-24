@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Reversi</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: manipulation; }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 12px; padding: 10px; box-sizing: border-box; }
+  #score { display: flex; gap: 20px; align-items: center; font-size: 18px; font-weight: 700; }
+  .tag { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 20px; height: 20px; border-radius: 50%; }
+  .dot.b { background: #22d3ee; box-shadow: 0 0 10px #22d3ee; }
+  .dot.w { background: #f472b6; box-shadow: 0 0 10px #f472b6; }
+  #turn { font-size: 14px; color: #a7a7c0; min-height: 18px; }
+  #board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; background: #1a3a2e;
+    padding: 6px; border-radius: 8px; width: min(92vw, 70vh, 440px); aspect-ratio: 1;
+    box-shadow: 0 0 20px rgba(34,211,238,.2); }
+  .sq { background: #14281f; border-radius: 3px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative; }
+  .sq.legal::after { content: ''; width: 24%; height: 24%; border-radius: 50%;
+    background: rgba(255,255,255,.18); }
+  .piece { width: 78%; height: 78%; border-radius: 50%; transition: transform .15s; }
+  .piece.b { background: radial-gradient(circle at 35% 30%, #7fe9fb, #22d3ee); box-shadow: 0 0 8px #22d3ee; }
+  .piece.w { background: radial-gradient(circle at 35% 30%, #ffc3e0, #f472b6); box-shadow: 0 0 8px #f472b6; }
+  #ctrl { display: flex; gap: 8px; }
+  #ctrl button { background: #15151f; color: #ededf2; border: 1px solid #2a2a3a; border-radius: 8px;
+    padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.9); text-align: center; padding: 20px; }
+  #msg h1 { margin: 0; }
+  .start { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px; padding: 10px 18px;
+    font-weight: 700; font-size: 16px; cursor: pointer; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="score">
+    <div class="tag"><span class="dot b"></span><span id="sb">2</span></div>
+    <div id="turn">Your move</div>
+    <div class="tag"><span id="sw">2</span><span class="dot w"></span></div>
+  </div>
+  <div id="board"></div>
+  <div id="ctrl"><button id="newBtn">New game</button></div>
+</div>
+<div id="msg">
+  <h1 id="mtitle">Reversi</h1>
+  <p id="msub">Outflank your opponent to flip their discs. Most discs wins.</p>
+  <div class="row">
+    <button class="start" data-m="cpu">vs Computer</button>
+    <button class="start" data-m="2p">2 Players</button>
+  </div>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const boardEl = document.getElementById('board');
+const N = 8, EMPTY = 0, B = 1, W = 2;
+const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const WEIGHTS = [
+  [120,-20,20,5,5,20,-20,120],[-20,-40,-5,-5,-5,-5,-40,-20],[20,-5,15,3,3,15,-5,20],
+  [5,-5,3,3,3,3,-5,5],[5,-5,3,3,3,3,-5,5],[20,-5,15,3,3,15,-5,20],
+  [-20,-40,-5,-5,-5,-5,-40,-20],[120,-20,20,5,5,20,-20,120]
+];
+let board, turn, mode, busy = false;
+
+function reset() {
+  board = Array.from({ length: N }, () => new Array(N).fill(EMPTY));
+  board[3][3] = W; board[3][4] = B; board[4][3] = B; board[4][4] = W;
+  turn = B;
+}
+function flips(bd, r, c, player) {
+  if (bd[r][c] !== EMPTY) return [];
+  const opp = player === B ? W : B, out = [];
+  for (const [dr, dc] of DIRS) {
+    let rr = r + dr, cc = c + dc, line = [];
+    while (rr >= 0 && rr < N && cc >= 0 && cc < N && bd[rr][cc] === opp) { line.push([rr, cc]); rr += dr; cc += dc; }
+    if (line.length && rr >= 0 && rr < N && cc >= 0 && cc < N && bd[rr][cc] === player) out.push(...line);
+  }
+  return out;
+}
+function legalMoves(bd, player) {
+  const m = [];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (flips(bd, r, c, player).length) m.push([r, c]);
+  return m;
+}
+function applyMove(bd, r, c, player) {
+  const f = flips(bd, r, c, player);
+  bd[r][c] = player;
+  for (const [rr, cc] of f) bd[rr][cc] = player;
+  return f.length;
+}
+function counts(bd) {
+  let b = 0, w = 0;
+  for (const row of bd) for (const v of row) { if (v === B) b++; else if (v === W) w++; }
+  return { b, w };
+}
+function render() {
+  boardEl.innerHTML = '';
+  const legal = (!busy && (mode === '2p' || turn === B)) ? legalMoves(board, turn) : [];
+  const legalSet = new Set(legal.map(([r, c]) => r * N + c));
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const sq = document.createElement('div'); sq.className = 'sq';
+    if (legalSet.has(r * N + c)) sq.className += ' legal';
+    if (board[r][c]) { const p = document.createElement('div'); p.className = 'piece ' + (board[r][c] === B ? 'b' : 'w'); sq.appendChild(p); }
+    sq.addEventListener('click', () => human(r, c));
+    boardEl.appendChild(sq);
+  }
+  const { b, w } = counts(board);
+  document.getElementById('sb').textContent = b;
+  document.getElementById('sw').textContent = w;
+  document.getElementById('turn').textContent = busy ? 'Computer thinking…'
+    : mode === '2p' ? (turn === B ? 'Cyan’s move' : 'Pink’s move')
+    : (turn === B ? 'Your move' : 'Computer');
+}
+function human(r, c) {
+  if (busy) return;
+  if (mode === 'cpu' && turn !== B) return;
+  if (!flips(board, r, c, turn).length) return;
+  applyMove(board, r, c, turn);
+  advance();
+}
+function advance() {
+  const other = turn === B ? W : B;
+  if (legalMoves(board, other).length) turn = other;
+  else if (!legalMoves(board, turn).length) return finish();
+  render();
+  if (mode === 'cpu' && turn === W && !busy) { busy = true; render(); setTimeout(cpuMove, 450); }
+}
+// minimax with alpha-beta for the CPU (plays White)
+function evaluate(bd) {
+  const mob = legalMoves(bd, W).length - legalMoves(bd, B).length;
+  let pos = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
+    if (bd[r][c] === W) pos += WEIGHTS[r][c]; else if (bd[r][c] === B) pos -= WEIGHTS[r][c];
+  return pos + mob * 10;
+}
+function minimax(bd, player, depth, alpha, beta) {
+  const moves = legalMoves(bd, player);
+  if (depth === 0) return evaluate(bd);
+  const opp = player === B ? W : B;
+  if (!moves.length) {
+    if (!legalMoves(bd, opp).length) { const { b, w } = counts(bd); return (w - b) * 1000; }
+    return minimax(bd, opp, depth, alpha, beta);
+  }
+  if (player === W) {
+    let best = -Infinity;
+    for (const [r, c] of moves) {
+      const nb = bd.map(row => row.slice()); applyMove(nb, r, c, W);
+      best = Math.max(best, minimax(nb, B, depth - 1, alpha, beta));
+      alpha = Math.max(alpha, best); if (beta <= alpha) break;
+    }
+    return best;
+  } else {
+    let best = Infinity;
+    for (const [r, c] of moves) {
+      const nb = bd.map(row => row.slice()); applyMove(nb, r, c, B);
+      best = Math.min(best, minimax(nb, W, depth - 1, alpha, beta));
+      beta = Math.min(beta, best); if (beta <= alpha) break;
+    }
+    return best;
+  }
+}
+function cpuMove() {
+  const moves = legalMoves(board, W);
+  const empties = counts(board); const filled = empties.b + empties.w;
+  const depth = filled > 52 ? 8 : 4; // solve near the endgame
+  let bestScore = -Infinity, best = moves[0];
+  for (const [r, c] of moves) {
+    const nb = board.map(row => row.slice()); applyMove(nb, r, c, W);
+    const s = minimax(nb, B, depth - 1, -Infinity, Infinity);
+    if (s > bestScore) { bestScore = s; best = [r, c]; }
+  }
+  applyMove(board, best[0], best[1], W);
+  busy = false; advance();
+}
+function finish() {
+  render();
+  const { b, w } = counts(board);
+  let title, sub = 'Cyan ' + b + ' · Pink ' + w;
+  if (mode === 'cpu') title = b > w ? 'You win! 🎉' : b < w ? 'Computer wins' : 'Tie game';
+  else title = b > w ? 'Cyan wins!' : b < w ? 'Pink wins!' : 'Tie game';
+  Portal.gameplayStop();
+  document.getElementById('mtitle').textContent = title;
+  document.getElementById('msub').textContent = sub;
+  document.querySelector('#msg .row').style.display = 'flex';
+  document.getElementById('msg').style.display = 'flex';
+}
+function startGame(m) {
+  mode = m; busy = false; reset();
+  document.getElementById('msg').style.display = 'none';
+  Portal.gameplayStart(); render();
+}
+document.getElementById('newBtn').addEventListener('click', () => startGame(mode || 'cpu'));
+document.querySelectorAll('.start').forEach(b => b.addEventListener('click', () => startGame(b.dataset.m)));
+
+(async function init() {
+  await Portal.ready();
+  reset(); render();
+  document.getElementById('msg').style.display = 'flex';
+})();
+</script>
+</body>
+</html>
