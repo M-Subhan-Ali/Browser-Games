@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Neon Crossing</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { background: #0d0d16; border-radius: 8px; max-width: 100%; max-height: 100%; }
+  #hud { position: fixed; top: 10px; left: 12px; font-size: 16px; font-weight: 700; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.85); text-align: center; padding: 20px; }
+  button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 10px 20px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  h1 { margin: 0; font-size: 28px; }
+  p { margin: 0; max-width: 320px; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="400" height="520"></canvas></div>
+<div id="hud">Score: <span id="score">0</span> · Best: <span id="best">0</span></div>
+<div id="msg">
+  <h1 id="title">Neon Crossing</h1>
+  <p id="sub">Hop forward across the lanes. Arrow keys / WASD or swipe. Dodge the traffic and don’t get left behind.</p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height, TILE = 50, COLS = Math.floor(W / TILE);
+const CARCOLORS = ['#f472b6', '#facc15', '#4ade80', '#fb923c', '#a855f7'];
+let player, lanes, cam, autoScroll, score, best = 0, running = false, hopAnim;
+
+function laneAt(row) {
+  if (!lanes[row]) {
+    if (row <= 1) lanes[row] = { type: 'safe' };
+    else {
+      const road = Math.random() < 0.62;
+      if (!road) lanes[row] = { type: 'safe' };
+      else {
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        const speed = (0.8 + Math.random() * 1.6) * dir * (1 + row / 260);
+        const gap = TILE * (2.4 + Math.random() * 2.2);
+        const cars = [];
+        let x = Math.random() * gap;
+        while (x < W + TILE) { cars.push({ x, w: TILE * (0.9 + Math.random() * 0.6) }); x += gap + Math.random() * TILE; }
+        lanes[row] = { type: 'road', dir, speed, cars, gap };
+      }
+    }
+  }
+  return lanes[row];
+}
+function reset() {
+  player = { col: COLS >> 1, row: 0, px: (COLS >> 1) * TILE, py: 0 };
+  lanes = {}; cam = -3; autoScroll = -3; score = 0; hopAnim = 0;
+  for (let r = -4; r < 14; r++) laneAt(r);
+  updateHud();
+}
+function updateHud() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('best').textContent = best;
+}
+function screenY(row) { return H * 0.68 - (row - cam) * TILE; }
+function hop(dcol, drow) {
+  if (!running || hopAnim > 0) return;
+  const nc = player.col + dcol, nr = player.row + drow;
+  if (nc < 0 || nc >= COLS) return;
+  if (nr < Math.ceil(autoScroll)) return; // can't go below the advancing edge
+  player.col = nc; player.row = nr; hopAnim = 1;
+  if (player.row > score) { score = player.row; updateHud(); }
+  laneAt(player.row); laneAt(player.row + 10);
+}
+function update() {
+  // advancing bottom edge speeds up with score
+  autoScroll += 0.006 + score * 0.00012;
+  cam += ((player.row - 1) - cam) * 0.12;
+  if (cam < autoScroll - 0.01) cam = autoScroll - 0.01;
+  if (hopAnim > 0) hopAnim = Math.max(0, hopAnim - 0.2);
+  // animate player pixel toward target
+  const tx = player.col * TILE; player.px += (tx - player.px) * 0.4;
+  // move cars
+  for (const r in lanes) {
+    const L = lanes[r]; if (L.type !== 'road') continue;
+    for (const car of L.cars) {
+      car.x += L.speed * 3;
+      if (L.speed > 0 && car.x > W + TILE) car.x = -car.w - Math.random() * L.gap;
+      if (L.speed < 0 && car.x < -car.w) car.x = W + TILE + Math.random() * L.gap;
+    }
+    if (Math.round(player.row) === +r) {
+      const px = player.px;
+      for (const car of L.cars)
+        if (car.x < px + TILE - 8 && car.x + car.w > px + 8) return gameOver();
+    }
+  }
+  // left behind the bottom edge?
+  if (player.row < autoScroll - 0.5) return gameOver();
+  if (screenY(player.row) > H + TILE) return gameOver();
+}
+function draw() {
+  ctx.fillStyle = '#0d0d16'; ctx.fillRect(0, 0, W, H);
+  const topRow = Math.ceil(cam + H * 0.68 / TILE) + 1;
+  const botRow = Math.floor(cam - (H - H * 0.68) / TILE) - 1;
+  for (let row = botRow; row <= topRow; row++) {
+    const L = laneAt(row), y = screenY(row) - TILE;
+    if (y > H || y < -TILE) continue;
+    ctx.fillStyle = L.type === 'safe' ? (row % 2 ? '#132015' : '#17271a') : '#15151f';
+    ctx.fillRect(0, y, W, TILE);
+    if (L.type === 'road') {
+      ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.setLineDash([12, 12]);
+      ctx.beginPath(); ctx.moveTo(0, y + TILE / 2); ctx.lineTo(W, y + TILE / 2); ctx.stroke(); ctx.setLineDash([]);
+      for (let i = 0; i < L.cars.length; i++) {
+        const car = L.cars[i], col = CARCOLORS[(Math.abs(row) + i) % CARCOLORS.length];
+        ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 10;
+        roundRect(car.x + 3, y + 9, car.w - 6, TILE - 18); ctx.fill(); ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(car.x + 6, y + 13, car.w - 12, 6);
+      }
+    }
+  }
+  // advancing edge marker
+  const edgeY = screenY(autoScroll);
+  ctx.fillStyle = 'rgba(248,113,113,.10)'; ctx.fillRect(0, edgeY, W, H - edgeY);
+  ctx.strokeStyle = 'rgba(248,113,113,.5)'; ctx.setLineDash([8, 6]);
+  ctx.beginPath(); ctx.moveTo(0, edgeY); ctx.lineTo(W, edgeY); ctx.stroke(); ctx.setLineDash([]);
+  // player
+  const y = screenY(player.row) - TILE;
+  const lift = hopAnim > 0 ? Math.sin(hopAnim * Math.PI) * 8 : 0;
+  ctx.fillStyle = '#67e8f9'; ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 16;
+  roundRect(player.px + 8, y + 8 - lift, TILE - 16, TILE - 16); ctx.fill(); ctx.shadowBlur = 0;
+  ctx.fillStyle = '#0a0a0f'; ctx.fillRect(player.px + 18, y + 18 - lift, 6, 6); ctx.fillRect(player.px + 28, y + 18 - lift, 6, 6);
+}
+function roundRect(x, y, w, h) {
+  const r = 6; ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function loop() { if (!running) return; update(); if (running) draw(); requestAnimationFrame(loop); }
+async function gameOver() {
+  running = false;
+  if (score > best) { best = score; Portal.save({ best }); }
+  Portal.submitScore(score); Portal.gameplayStop();
+  updateHud();
+  show('Splat!', 'You crossed ' + score + (score === best && score > 0 ? ' lanes · New best!' : ' lanes'), 'Try again');
+}
+function show(t, s, b) {
+  document.getElementById('title').textContent = t;
+  document.getElementById('sub').textContent = s;
+  document.getElementById('btn').textContent = b;
+  document.getElementById('msg').style.display = 'flex';
+}
+function start() {
+  document.getElementById('msg').style.display = 'none';
+  reset(); running = true; Portal.gameplayStart(); loop();
+}
+addEventListener('keydown', e => {
+  const k = e.key;
+  if (k === 'ArrowUp' || k === 'w' || k === 'W') hop(0, 1);
+  else if (k === 'ArrowDown' || k === 's' || k === 'S') hop(0, -1);
+  else if (k === 'ArrowLeft' || k === 'a' || k === 'A') hop(-1, 0);
+  else if (k === 'ArrowRight' || k === 'd' || k === 'D') hop(1, 0);
+  else return;
+  e.preventDefault();
+});
+let ts = null;
+cv.addEventListener('touchstart', e => { ts = e.touches[0]; e.preventDefault(); }, { passive: false });
+cv.addEventListener('touchend', e => {
+  if (!ts) return; const t = e.changedTouches[0];
+  const dx = t.clientX - ts.clientX, dy = t.clientY - ts.clientY;
+  if (Math.abs(dx) < 20 && Math.abs(dy) < 20) hop(0, 1); // tap = forward
+  else if (Math.abs(dx) > Math.abs(dy)) hop(dx > 0 ? 1 : -1, 0);
+  else hop(0, dy < 0 ? 1 : -1);
+  ts = null; e.preventDefault();
+}, { passive: false });
+document.getElementById('btn').addEventListener('click', start);
+
+(async function init() {
+  await Portal.ready();
+  const saved = await Portal.load();
+  if (saved && saved.best) best = saved.best;
+  reset(); draw(); updateHud();
+  show('Neon Crossing', 'Hop forward across the lanes. Arrow keys / WASD or swipe. Dodge the traffic and don’t get left behind.', 'Play');
+})();
+</script>
+</body>
+</html>
