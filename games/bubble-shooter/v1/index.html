@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Bubble Shooter</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { background: #0d0d16; border-radius: 8px; max-width: 100%; max-height: 100%; touch-action: none; }
+  #hud { position: fixed; top: 10px; left: 12px; font-size: 16px; font-weight: 700; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.85); text-align: center; padding: 20px; }
+  button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 10px 20px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  h1 { margin: 0; font-size: 28px; }
+  p { margin: 0; max-width: 300px; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="360" height="540"></canvas></div>
+<div id="hud">Score: <span id="score">0</span> · Best: <span id="best">0</span></div>
+<div id="msg">
+  <h1 id="title">Bubble Shooter</h1>
+  <p id="sub">Aim with your mouse or finger and tap to pop clusters of 3+.</p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const R = 18, COLS = 10, ROWH = R * 1.73;
+const COLORS = ['#22d3ee', '#a855f7', '#f472b6', '#facc15', '#4ade80', '#fb923c'];
+const TOP_LIMIT = Math.floor((H - 70) / ROWH); // row index that ends the game
+
+let grid, score, best = 0, running = false;
+let cur, next, shot = null, aim = -Math.PI / 2, shotsSinceDrop = 0;
+
+function cellX(r, c) { return R + c * 2 * R + (r % 2 ? R : 0); }
+function cellY(r) { return R + r * ROWH; }
+function colsIn(r) { return r % 2 ? COLS - 1 : COLS; }
+
+function reset() {
+  grid = [];
+  for (let r = 0; r < 5; r++) {
+    grid[r] = [];
+    for (let c = 0; c < colsIn(r); c++) grid[r][c] = (Math.random() * 5 | 0);
+  }
+  score = 0; shotsSinceDrop = 0;
+  cur = randColor(); next = randColor();
+  shot = null; updateHud();
+}
+function randColor() {
+  // pick from colors currently on the board so shots stay useful
+  const present = new Set();
+  if (grid) for (const row of grid) for (const v of row) if (v != null) present.add(v);
+  const pool = present.size ? [...present] : [0, 1, 2, 3, 4];
+  return pool[Math.random() * pool.length | 0];
+}
+function updateHud() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('best').textContent = best;
+}
+function neighbors(r, c) {
+  const odd = r % 2;
+  const out = [[r, c - 1], [r, c + 1]];
+  if (odd) { out.push([r - 1, c], [r - 1, c + 1], [r + 1, c], [r + 1, c + 1]); }
+  else { out.push([r - 1, c - 1], [r - 1, c], [r + 1, c - 1], [r + 1, c]); }
+  return out.filter(([rr, cc]) => rr >= 0 && grid[rr] && cc >= 0 && cc < colsIn(rr));
+}
+function snap(x, y) {
+  let r = Math.max(0, Math.round((y - R) / ROWH));
+  while (!grid[r]) { grid[r] = []; }
+  let c = Math.round((x - R - (r % 2 ? R : 0)) / (2 * R));
+  c = Math.max(0, Math.min(colsIn(r) - 1, c));
+  if (grid[r][c] == null) return [r, c];
+  // occupied: search outward neighbors for a free slot
+  const q = [[r, c]], seen = new Set([r + ',' + c]);
+  while (q.length) {
+    const [cr, cc] = q.shift();
+    for (const [nr, nc] of neighbors(cr, cc)) {
+      const k = nr + ',' + nc;
+      if (seen.has(k)) continue; seen.add(k);
+      if (grid[nr][nc] == null) return [nr, nc];
+      q.push([nr, nc]);
+    }
+  }
+  return [r, c];
+}
+function sameColorCluster(r, c, color) {
+  const q = [[r, c]], seen = new Set([r + ',' + c]), out = [];
+  while (q.length) {
+    const [cr, cc] = q.shift(); out.push([cr, cc]);
+    for (const [nr, nc] of neighbors(cr, cc)) {
+      const k = nr + ',' + nc;
+      if (seen.has(k) || grid[nr][nc] !== color) continue;
+      seen.add(k); q.push([nr, nc]);
+    }
+  }
+  return out;
+}
+function dropFloating() {
+  const anchored = new Set();
+  for (let c = 0; c < colsIn(0); c++) {
+    if (grid[0] && grid[0][c] != null) {
+      const q = [[0, c]]; anchored.add('0,' + c);
+      while (q.length) {
+        const [cr, cc] = q.shift();
+        for (const [nr, nc] of neighbors(cr, cc)) {
+          const k = nr + ',' + nc;
+          if (!anchored.has(k) && grid[nr][nc] != null) { anchored.add(k); q.push([nr, nc]); }
+        }
+      }
+    }
+  }
+  let dropped = 0;
+  for (let r = 0; r < grid.length; r++)
+    for (let c = 0; c < (grid[r] ? grid[r].length : 0); c++)
+      if (grid[r][c] != null && !anchored.has(r + ',' + c)) { grid[r][c] = null; dropped++; }
+  return dropped;
+}
+function place(r, c, color) {
+  grid[r][c] = color;
+  const cluster = sameColorCluster(r, c, color);
+  if (cluster.length >= 3) {
+    for (const [cr, cc] of cluster) grid[cr][cc] = null;
+    score += cluster.length * 10;
+    const dropped = dropFloating();
+    score += dropped * 20;
+  }
+  updateHud();
+  // reached the bottom?
+  for (let rr = TOP_LIMIT; rr < grid.length; rr++)
+    if (grid[rr]) for (const v of grid[rr]) if (v != null) return gameOver();
+  if (grid.every(row => row.every(v => v == null))) { score += 500; updateHud(); addRows(5); }
+}
+function addRows(n) {
+  const fresh = [];
+  for (let i = 0; i < n; i++) {
+    const row = [];
+    for (let c = 0; c < colsIn(i); c++) row.push(Math.random() < 0.85 ? (Math.random() * 5 | 0) : null);
+    fresh.push(row);
+  }
+  grid = fresh.concat(grid);
+  for (let rr = TOP_LIMIT; rr < grid.length; rr++)
+    if (grid[rr]) for (const v of grid[rr]) if (v != null) return gameOver();
+}
+function fire() {
+  if (shot || !running) return;
+  shot = { x: W / 2, y: H - R - 4, vx: Math.cos(aim) * 9, vy: Math.sin(aim) * 9, color: cur };
+}
+function tickShot() {
+  if (!shot) return;
+  shot.x += shot.vx; shot.y += shot.vy;
+  if (shot.x < R) { shot.x = R; shot.vx = -shot.vx; }
+  if (shot.x > W - R) { shot.x = W - R; shot.vx = -shot.vx; }
+  let hit = shot.y <= R;
+  if (!hit) {
+    for (let r = 0; r < grid.length && !hit; r++)
+      for (let c = 0; c < (grid[r] ? grid[r].length : 0); c++)
+        if (grid[r][c] != null) {
+          const dx = shot.x - cellX(r, c), dy = shot.y - cellY(r);
+          if (dx * dx + dy * dy < (2 * R - 2) * (2 * R - 2)) { hit = true; break; }
+        }
+  }
+  if (hit) {
+    const [r, c] = snap(shot.x, shot.y);
+    const color = shot.color; shot = null;
+    place(r, c, color);
+    cur = next; next = randColor();
+    if (++shotsSinceDrop >= 6) { shotsSinceDrop = 0; addRows(1); }
+  }
+}
+function bubble(x, y, color, rad) {
+  ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2);
+  ctx.fillStyle = COLORS[color]; ctx.shadowColor = COLORS[color]; ctx.shadowBlur = 8;
+  ctx.fill(); ctx.shadowBlur = 0;
+  ctx.beginPath(); ctx.arc(x - rad / 3, y - rad / 3, rad / 3, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fill();
+}
+function draw() {
+  ctx.fillStyle = '#0d0d16'; ctx.fillRect(0, 0, W, H);
+  for (let r = 0; r < grid.length; r++)
+    for (let c = 0; c < (grid[r] ? grid[r].length : 0); c++)
+      if (grid[r][c] != null) bubble(cellX(r, c), cellY(r), grid[r][c], R - 1);
+  // danger line
+  ctx.strokeStyle = 'rgba(248,113,113,.4)'; ctx.setLineDash([6, 6]);
+  const ly = cellY(TOP_LIMIT) - R; ctx.beginPath(); ctx.moveTo(0, ly); ctx.lineTo(W, ly); ctx.stroke();
+  ctx.setLineDash([]);
+  if (shot) bubble(shot.x, shot.y, shot.color, R - 1);
+  // aim guide + shooter
+  if (running && !shot) {
+    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.beginPath();
+    ctx.moveTo(W / 2, H - R - 4);
+    ctx.lineTo(W / 2 + Math.cos(aim) * 120, H - R - 4 + Math.sin(aim) * 120); ctx.stroke();
+  }
+  bubble(W / 2, H - R - 4, cur, R - 1);
+  bubble(W - R - 2, H - R - 4, next, R - 4);
+}
+function loop() {
+  if (!running) return;
+  tickShot(); draw();
+  requestAnimationFrame(loop);
+}
+async function gameOver() {
+  running = false; shot = null;
+  if (score > best) { best = score; Portal.save({ best }); }
+  Portal.submitScore(score); Portal.gameplayStop();
+  updateHud(); draw();
+  show('Game Over', 'Score: ' + score, 'Play again');
+}
+function show(t, s, b) {
+  document.getElementById('title').textContent = t;
+  document.getElementById('sub').textContent = s;
+  document.getElementById('btn').textContent = b;
+  document.getElementById('msg').style.display = 'flex';
+}
+function start() {
+  document.getElementById('msg').style.display = 'none';
+  reset(); running = true; Portal.gameplayStart(); loop();
+}
+function setAim(clientX, clientY) {
+  const rect = cv.getBoundingClientRect();
+  const x = (clientX - rect.left) * (W / rect.width);
+  const y = (clientY - rect.top) * (H / rect.height);
+  let a = Math.atan2(y - (H - R - 4), x - W / 2);
+  a = Math.max(-Math.PI * 0.97, Math.min(-Math.PI * 0.03, a));
+  aim = a;
+}
+cv.addEventListener('mousemove', e => setAim(e.clientX, e.clientY));
+cv.addEventListener('click', e => { setAim(e.clientX, e.clientY); fire(); });
+cv.addEventListener('touchmove', e => { setAim(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, { passive: false });
+cv.addEventListener('touchend', e => { fire(); e.preventDefault(); }, { passive: false });
+document.getElementById('btn').addEventListener('click', start);
+
+(async function init() {
+  await Portal.ready();
+  const saved = await Portal.load();
+  if (saved && saved.best) { best = saved.best; }
+  reset(); draw(); updateHud();
+  show('Bubble Shooter', 'Aim with your mouse or finger and tap to pop clusters of 3+.', 'Play');
+})();
+</script>
+</body>
+</html>
