@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Sudoku</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: manipulation; }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 10px; padding: 8px; box-sizing: border-box; }
+  #top { display: flex; gap: 14px; align-items: center; font-size: 15px; font-weight: 700; }
+  #board { display: grid; grid-template-columns: repeat(9, 1fr); background: #242433;
+    gap: 1px; border: 2px solid #22d3ee; border-radius: 6px; width: min(92vw, 92vh, 460px);
+    aspect-ratio: 1; box-shadow: 0 0 16px rgba(34,211,238,.25); }
+  .cell { background: #0d0d16; display: flex; align-items: center; justify-content: center;
+    font-size: clamp(16px, 5vw, 26px); font-weight: 700; cursor: pointer; user-select: none; position: relative; }
+  .cell.given { color: #8b8ba3; }
+  .cell.user { color: #22d3ee; }
+  .cell.sel { background: #1b2b33; }
+  .cell.peer { background: #141420; }
+  .cell.same { background: #13232b; }
+  .cell.bad { color: #f87171 !important; }
+  .cell.br { border-right: 2px solid #343448; }
+  .cell.bb { border-bottom: 2px solid #343448; }
+  .marks { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3,1fr);
+    font-size: clamp(7px,1.9vw,10px); color: #6b6b85; pointer-events: none; }
+  .marks span { display: flex; align-items: center; justify-content: center; }
+  #pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; width: min(92vw, 460px); }
+  #pad button { background: #15151f; color: #ededf2; border: 1px solid #2a2a3a; border-radius: 8px;
+    padding: 10px 0; font-weight: 700; font-size: 18px; cursor: pointer; }
+  #pad button:active { background: #22d3ee; color: #0a0a0f; }
+  #pad button.on { background: #a855f7; color: #0a0a0f; }
+  #ctrl { display: flex; gap: 8px; }
+  #ctrl button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  #ctrl button.alt { background: #15151f; color: #ededf2; border: 1px solid #2a2a3a; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.9); text-align: center; }
+  #msg h1 { margin: 0; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="top">
+    <span>Difficulty: <span id="diff">Medium</span></span>
+    <span>Time: <span id="time">0:00</span></span>
+    <span>Mistakes: <span id="mist">0</span></span>
+  </div>
+  <div id="board"></div>
+  <div id="pad"></div>
+  <div id="ctrl">
+    <button id="notesBtn" class="alt">Notes: Off</button>
+    <button id="eraseBtn" class="alt">Erase</button>
+    <button id="newBtn">New</button>
+  </div>
+</div>
+<div id="msg">
+  <h1 id="mtitle">Sudoku</h1>
+  <p id="msub">Choose a difficulty to begin.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+    <button class="start" data-d="0">Easy</button>
+    <button class="start" data-d="1">Medium</button>
+    <button class="start" data-d="2">Hard</button>
+  </div>
+</div>
+<style>.start{background:#22d3ee;color:#0a0a0f;border:0;border-radius:8px;padding:10px 18px;font-weight:700;font-size:16px;cursor:pointer}</style>
+<script src="../../portal-sdk.js"></script>
+<script>
+const boardEl = document.getElementById('board');
+const DIFF = [['Easy', 40], ['Medium', 50], ['Hard', 56]]; // cells removed
+let solution, puzzle, given, marks, sel = -1, notes = false, mistakes = 0;
+let startTime = 0, timer = null, difficulty = 1, solved = false;
+
+function makeSolved() {
+  const g = Array.from({ length: 9 }, () => new Array(9).fill(0));
+  function ok(r, c, n) {
+    for (let i = 0; i < 9; i++) if (g[r][i] === n || g[i][c] === n) return false;
+    const br = r - r % 3, bc = c - c % 3;
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) if (g[br + i][bc + j] === n) return false;
+    return true;
+  }
+  function fill(pos) {
+    if (pos === 81) return true;
+    const r = pos / 9 | 0, c = pos % 9;
+    const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    for (let i = nums.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[nums[i], nums[j]] = [nums[j], nums[i]]; }
+    for (const n of nums) if (ok(r, c, n)) { g[r][c] = n; if (fill(pos + 1)) return true; g[r][c] = 0; }
+    return false;
+  }
+  fill(0); return g;
+}
+function newGame(d) {
+  difficulty = d; document.getElementById('diff').textContent = DIFF[d][0];
+  solution = makeSolved();
+  puzzle = solution.map(row => row.slice());
+  const cells = [...Array(81).keys()];
+  for (let i = cells.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[cells[i], cells[j]] = [cells[j], cells[i]]; }
+  let removed = 0;
+  for (const idx of cells) {
+    if (removed >= DIFF[d][1]) break;
+    puzzle[idx / 9 | 0][idx % 9] = 0; removed++;
+  }
+  given = puzzle.map(row => row.map(v => v !== 0));
+  marks = Array.from({ length: 81 }, () => new Set());
+  sel = -1; mistakes = 0; solved = false;
+  document.getElementById('mist').textContent = '0';
+  render(); startTimer();
+}
+function startTimer() {
+  startTime = Date.now(); clearInterval(timer);
+  timer = setInterval(() => {
+    const s = (Date.now() - startTime) / 1000 | 0;
+    document.getElementById('time').textContent = (s / 60 | 0) + ':' + String(s % 60).padStart(2, '0');
+  }, 500);
+}
+function render() {
+  boardEl.innerHTML = '';
+  const selV = sel >= 0 ? puzzle[sel / 9 | 0][sel % 9] : 0;
+  for (let i = 0; i < 81; i++) {
+    const r = i / 9 | 0, c = i % 9, v = puzzle[r][c];
+    const d = document.createElement('div');
+    d.className = 'cell' + (given[r][c] ? ' given' : (v ? ' user' : ''));
+    if (c % 3 === 2 && c !== 8) d.className += ' br';
+    if (r % 3 === 2 && r !== 8) d.className += ' bb';
+    if (i === sel) d.className += ' sel';
+    else if (sel >= 0) {
+      const sr = sel / 9 | 0, sc = sel % 9;
+      if (r === sr || c === sc || (r - r % 3 === sr - sr % 3 && c - c % 3 === sc - sc % 3)) d.className += ' peer';
+      if (v && v === selV) d.className += ' same';
+    }
+    if (v) {
+      if (!given[r][c] && v !== solution[r][c]) d.className += ' bad';
+      d.textContent = v;
+    } else if (marks[i].size) {
+      const m = document.createElement('div'); m.className = 'marks';
+      for (let n = 1; n <= 9; n++) { const s = document.createElement('span'); s.textContent = marks[i].has(n) ? n : ''; m.appendChild(s); }
+      d.appendChild(m);
+    }
+    d.addEventListener('click', () => { sel = i; render(); });
+    boardEl.appendChild(d);
+  }
+}
+function place(n) {
+  if (sel < 0 || solved) return;
+  const r = sel / 9 | 0, c = sel % 9;
+  if (given[r][c]) return;
+  if (notes && n) {
+    if (puzzle[r][c]) return;
+    marks[sel].has(n) ? marks[sel].delete(n) : marks[sel].add(n);
+  } else {
+    puzzle[r][c] = n; marks[sel].clear();
+    if (n && n !== solution[r][c]) {
+      mistakes++; document.getElementById('mist').textContent = mistakes;
+    }
+  }
+  render(); checkWin();
+}
+function checkWin() {
+  for (let i = 0; i < 81; i++) if (puzzle[i / 9 | 0][i % 9] !== solution[i / 9 | 0][i % 9]) return;
+  solved = true; clearInterval(timer);
+  Portal.gameplayStop();
+  const s = (Date.now() - startTime) / 1000 | 0;
+  const t = (s / 60 | 0) + ':' + String(s % 60).padStart(2, '0');
+  show('Solved! ✨', 'Time ' + t + ' · Mistakes ' + mistakes, true);
+}
+function show(t, s, win) {
+  document.getElementById('mtitle').textContent = t;
+  document.getElementById('msub').textContent = s;
+  document.getElementById('msg').style.display = 'flex';
+}
+// number pad
+const pad = document.getElementById('pad');
+for (let n = 1; n <= 9; n++) {
+  const b = document.createElement('button'); b.textContent = n;
+  b.addEventListener('click', () => place(n)); pad.appendChild(b);
+}
+document.getElementById('notesBtn').addEventListener('click', e => {
+  notes = !notes; e.target.textContent = 'Notes: ' + (notes ? 'On' : 'Off');
+  e.target.classList.toggle('on', notes);
+});
+document.getElementById('eraseBtn').addEventListener('click', () => place(0));
+document.getElementById('newBtn').addEventListener('click', () => { Portal.gameplayStart(); newGame(difficulty); });
+document.addEventListener('keydown', e => {
+  if (e.key >= '1' && e.key <= '9') place(+e.key);
+  else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') place(0);
+  else if (e.key === 'n' || e.key === 'N') { notes = !notes; document.getElementById('notesBtn').textContent = 'Notes: ' + (notes ? 'On' : 'Off'); document.getElementById('notesBtn').classList.toggle('on', notes); }
+  else if (sel >= 0 && e.key.startsWith('Arrow')) {
+    let r = sel / 9 | 0, c = sel % 9;
+    if (e.key === 'ArrowUp') r = (r + 8) % 9; if (e.key === 'ArrowDown') r = (r + 1) % 9;
+    if (e.key === 'ArrowLeft') c = (c + 8) % 9; if (e.key === 'ArrowRight') c = (c + 1) % 9;
+    sel = r * 9 + c; render(); e.preventDefault();
+  }
+});
+document.querySelectorAll('.start').forEach(b => b.addEventListener('click', () => {
+  document.getElementById('msg').style.display = 'none';
+  Portal.gameplayStart(); newGame(+b.dataset.d);
+}));
+
+(async function init() {
+  await Portal.ready();
+  show('Sudoku', 'Choose a difficulty to begin.', false);
+})();
+</script>
+</body>
+</html>
