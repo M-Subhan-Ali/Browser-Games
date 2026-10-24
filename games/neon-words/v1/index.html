@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Neon Words</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: manipulation; }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 12px; padding: 8px; box-sizing: border-box; }
+  #top { font-size: 15px; font-weight: 700; color: #a7a7c0; min-height: 18px; text-align: center; }
+  #grid { display: grid; grid-template-rows: repeat(6, 1fr); gap: 6px; }
+  .grow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .tile { width: clamp(42px, 13vw, 58px); height: clamp(42px, 13vw, 58px); border: 2px solid #2a2a3a;
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-size: clamp(20px, 6vw, 30px); font-weight: 800; text-transform: uppercase; }
+  .tile.filled { border-color: #4a4a5e; }
+  .tile.correct { background: #22d3ee; border-color: #22d3ee; color: #0a0a0f; box-shadow: 0 0 10px #22d3ee; }
+  .tile.present { background: #a855f7; border-color: #a855f7; color: #0a0a0f; box-shadow: 0 0 10px #a855f7; }
+  .tile.absent { background: #1b1b27; border-color: #1b1b27; color: #6b6b85; }
+  .tile.pop { animation: pop .12s; }
+  @keyframes pop { 50% { transform: scale(1.12); } }
+  .tile.shake { animation: shake .4s; }
+  @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+  #kb { display: flex; flex-direction: column; gap: 6px; width: min(96vw, 500px); }
+  .krow { display: flex; gap: 5px; justify-content: center; }
+  .key { flex: 1; max-width: 42px; height: 50px; border-radius: 6px; border: 0; background: #2a2a3a;
+    color: #ededf2; font-weight: 700; font-size: 14px; cursor: pointer; text-transform: uppercase; }
+  .key.wide { max-width: 64px; font-size: 12px; }
+  .key.correct { background: #22d3ee; color: #0a0a0f; }
+  .key.present { background: #a855f7; color: #0a0a0f; }
+  .key.absent { background: #15151c; color: #55556b; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.9); text-align: center; padding: 20px; }
+  #msg h1 { margin: 0; }
+  #msg button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px; padding: 10px 20px;
+    font-weight: 700; font-size: 16px; cursor: pointer; }
+  #toast { position: fixed; top: 20%; background: #ededf2; color: #0a0a0f; padding: 8px 16px;
+    border-radius: 8px; font-weight: 700; opacity: 0; transition: opacity .2s; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="top">Guess the 5-letter word · Streak: <span id="streak">0</span></div>
+  <div id="grid"></div>
+  <div id="kb"></div>
+</div>
+<div id="toast"></div>
+<div id="msg">
+  <h1 id="mtitle">Neon Words</h1>
+  <p id="msub"></p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+// Curated 5-letter answer words (also the accepted-guess set).
+const WORDS = ("about above actor acute admit adopt adult after again agent agree ahead alarm album alert alike alive allow alone along aloud alpha altar alter amber amend among angel anger angle ankle apart apple apply arena argue arise armor aroma array arrow aside asset audio audit avoid awake award aware badge baker basic beach beard beast begin being bench berry bible bingo birth black blade blame blank blast blaze bleak blend bless blind blink block bloom blown blues blunt blush board boast bonus boost booth bound brace brain brake brand brave bread break breed brick bride brief bring brisk broad broke brook broom brown brush build built bunch burst cabin cable camel candy cargo carol carry carve catch cause chain chair chalk charm chart chase cheap cheat check cheek cheer chess chest chief child chill china chord chose claim clamp clash class clean clear clerk click cliff climb cloak clock clone close cloth cloud clove clown clubs coach coast cobra color comet comic coral couch cough could count court cover crack craft crane crash crawl crazy cream creek creep crest crime crisp cross crowd crown crude cruel crumb crush crust curve cycle daily dairy dance dandy datum deals dealt death debut decay delay delta dense depot depth derby devil diary dimly diner dirty dizzy dodge doing donor doubt dough dozen draft drain drama drank drawn dread dream dress dried drift drill drink drive drops drove drown drums dwell eager eagle early earth easel eaten ebony edict eerie eight elbow elder elect elite ember empty enemy enjoy enter entry equal error essay event every exact exalt excel exile exist extra fable faced facet faint fairy faith false fancy fatal fault feast fence ferry fetch fever fiber field fiend fiery fifth fifty fight filly films final finch first fists fixed flair flame flank flash flask fleet flesh flick fling float flock flood floor flora flour flown fluid flung flush flute foamy focal focus foggy force forge forgo forth forty forum found frame frank fraud freak fresh fried frill frisk front frost frown fruit fudge fully fungi funny gaily gamer gauge gaunt gauze gavel gazer gears genre ghost giant given giver glade gland glare glass gleam glide globe gloom glory gloss glove glyph gnash goals going goody goose gorge grace grade grain grand grant grape graph grasp grass grave gravy graze great greed green greet grief grill grime grind groan groom grope gross group grove growl grown gruff guard guess guest guide guild guilt gulls gusty habit hairy halve handy happy hardy harsh haste hasty haunt haven havoc hazel heads heart heavy hedge hefty hello hence herbs hertz hinge hippo hobby holly honey honor horde horse hotel hound house hover human humid humor hunch hurry hyena ideal idiom igloo image inbox incur index inlet inner input intro irate irony issue ivory jazzy jelly jewel joint joker jolly judge juice juicy jumbo jumpy kayak kebab khaki kinds kiosk kites knack kneel knife knock knoll known koala label labor laden lance lapse large laser later latch laugh layer leach leafy leaky leaps learn lease leash least leave ledge legal lemon level lever light liked liken limbo limit lined linen liner lingo lipid liver lives llama loath lobby local lodge lofty logic loose lorry loser lotus lound lover lower loyal lucky lunar lunch lurch lying lyric macro madam magic magma major maker maple march marry marsh match mater maths matte mauve maybe mayor meant medal media melon mercy merge merit merry messy metal meter micro midst might milky mimic mince minor minus mirth miser mixed moist molar money month moody moral motel motor mould mound mount mourn mouse mouth moved mover movie mower mucky muddy mummy mural music musty myths nadir naive naked nanny nasal nasty naval navel neath needs nerve never newer newly nexus niche niece night ninja ninth noble nobly noise noisy nomad noose north notch noted novel nudge nurse nutty nylon oasis occur ocean offer often olive onion onset opera opium optic orbit order organ other otter ought ounce outer ovary oxide ozone paced paddy pagan paint panel panic paper parka party pasta paste patch patio pause peace peach pearl pedal penal penny peony perch peril petal petty phase phone photo piano picky piece piety piggy pilot pinch pines pinky glint pious pitch pivot pixel pizza place plaid plain plane plank plant plate plaza plead pleat plied pluck plumb plume plump plush quill poems point poise poker polar polio porch posse pouch pound power prank press price pride prime print prior prism prize probe prone prong proof prose proud prove prowl proxy prune pulse punch pupil puppy purge purse quack quail quake qualm quart queen query quest queue quick quiet quilt quirk quota quote rabid radar radio rainy raise rally ranch range rapid raspy ratio raven razor reach react ready realm rebel refer reign relax relay relic renal reply resin retro rhino rhyme rider ridge rifle right rigid rinse ripen rival river roast robin robot rocky rogue roman rouge rough round route rover rowdy royal ruddy ruder ruins ruler rumor rural saber sadly safer saint salad sally salon salsa salty sandy sauce saucy sauna saved savor scale scalp scare scarf scary scene scent scoff scold scoop scope score scorn scour scout scowl scrap scrub seals seats sedan seize sense serum serve setup seven sever shack shade shady shaft shake shaky shale shall shame shape share shark sharp shawl shear sheen sheep sheer sheet shelf shell shift shine shiny shire shirt shoal shock shone shook shoot shore short shout shove shown showy shrub shrug shuck shunt shush sided siege sieve sight sigma silky silly since sinew singe siren sixth sixty sized skate skier skill skirt skull skunk slack slain slang slant slash slate slave sleek sleep sleet slept slice slick slide slime slimy sling slink slope slosh sloth smack small smart smash smear smell smelt smile smirk smith smock smoke smoky snack snail snake snare snarl sneak sneer snide sniff snipe snoop snore snort snout snowy snuff soapy sober solar solid solve sonar sonic sooth sorry sound south space spade spank spare spark spawn speak spear speck speed spell spend spent sperm spice spicy spied spike spill spine spiny spire spite splat split spoil spoke spoof spook spool spoon spore sport spout spray spree sprig spurt spurn squad squat squid stack staff stage staid stain stair stake stale stalk stall stamp stand stank stare stark start stash state stave stays steak steal steam steed steel steep steer stein stern stick stiff still stilt sting stink stint stock stoic stoke stole stomp stone stony stood stool stoop store stork storm story stout stove strap straw stray strip strut stuck study stuff stump stung stunk stunt style suave sugar suite sulky sully sunny super surge surly swamp swarm swash swath swear sweat sweep sweet swell swept swift swine swing swirl swish swoon swoop sword swore sworn swung syrup table taboo tacit tacky taken tally talon tango tangy taper tapir tardy taste tasty tatty taunt tawny teach tears tease teddy teeth tempo tends tenor tense tenth tepid terms terse testy thank theft their theme there these thick thief thigh thing think third thong thorn those three threw throb throw thrum thumb thump tiara tidal tiger tight tilde timed timer times timid tipsy titan title toast today torso toads token tonal tonic tooth topaz topic torch total totem touch tough towel tower toxic trace track tract trade trail train trait tramp traps trash trawl tread treat trend triad trial tribe trick tried tripe troll troop trope trout trove truce truck truly trump trunk trust truth tubby tulip tumor tunic turbo tutor twang tweak tweed tweet twice twine twirl twist udder ulcer ultra uncle under undid undue unfit unify union unite unity unlit unmet until unwed unzip upper upset urban urged usage usher usual usurp utter vague valet valid value valve vapor vault vegan venom verge verse verso vicar video vigil vigor villa vinyl viola viper viral virus visit vista vital vivid vocal vodka vogue voice voter vouch vowel wacky wafer wager wagon waist waits waive waltz warts waste watch water waved waver waxen weary weave wedge weeds weird whale wharf wheat wheel whelp where which while whine whirl whisk white whole whoop whose widen wider widow width wield wince winch windy wiped wiper wires wiser witch witty woken woman women woods woozy words world worry worse worst worth would wound woven wrack wrath wreak wreck wrest wring wrist write wrong wrote wrung yacht yearn yeast yield young youth yummy zebra zesty".split(" "));
+const DICT = new Set(WORDS);
+const grid = document.getElementById('grid');
+let answer, row, col, guesses, done, streak = 0;
+const keyState = {};
+
+function newGame() {
+  answer = WORDS[Math.random() * WORDS.length | 0].toUpperCase();
+  row = 0; col = 0; guesses = Array.from({ length: 6 }, () => ['', '', '', '', '']); done = false;
+  for (const k in keyState) delete keyState[k];
+  render(); buildKeyboard();
+}
+function render() {
+  grid.innerHTML = '';
+  for (let r = 0; r < 6; r++) {
+    const gr = document.createElement('div'); gr.className = 'grow';
+    for (let c = 0; c < 5; c++) {
+      const t = document.createElement('div'); t.className = 'tile';
+      t.textContent = guesses[r][c] || '';
+      if (guesses[r][c]) t.classList.add('filled');
+      if (r < row && guesses[r].join('').length === 5) t.classList.add(scoreTile(guesses[r], c));
+      gr.appendChild(t);
+    }
+    grid.appendChild(gr);
+  }
+}
+function scoreTile(guess, c) {
+  const g = guess.join('');
+  if (g[c] === answer[c]) return 'correct';
+  // count letters not already matched as correct
+  const used = {};
+  for (let i = 0; i < 5; i++) if (g[i] === answer[i]) used[answer[i]] = (used[answer[i]] || 0) + 1;
+  let avail = 0;
+  for (let i = 0; i < 5; i++) if (answer[i] === g[c]) avail++;
+  avail -= (used[g[c]] || 0);
+  // count presents to the left of c for this letter
+  let before = 0;
+  for (let i = 0; i < c; i++) if (g[i] === g[c] && g[i] !== answer[i]) before++;
+  return (answer.includes(g[c]) && before < avail) ? 'present' : 'absent';
+}
+function buildKeyboard() {
+  const kb = document.getElementById('kb'); kb.innerHTML = '';
+  const rows = ['QWERTYUIOP', 'ASDFGHJKL', '↵ZXCVBNM⌫'];
+  for (const r of rows) {
+    const div = document.createElement('div'); div.className = 'krow';
+    for (const ch of r) {
+      const b = document.createElement('button'); b.className = 'key';
+      if (ch === '↵') { b.classList.add('wide'); b.textContent = 'Enter'; b.onclick = submit; }
+      else if (ch === '⌫') { b.classList.add('wide'); b.textContent = 'Del'; b.onclick = () => del(); }
+      else { b.textContent = ch; if (keyState[ch]) b.classList.add(keyState[ch]); b.onclick = () => type(ch); }
+      div.appendChild(b);
+    }
+    kb.appendChild(div);
+  }
+}
+function toast(m) {
+  const t = document.getElementById('toast'); t.textContent = m; t.style.opacity = 1;
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.style.opacity = 0, 1200);
+}
+function type(ch) {
+  if (done || col >= 5) return;
+  guesses[row][col++] = ch; render();
+  const tile = grid.children[row].children[col - 1]; tile.classList.add('pop');
+}
+function del() { if (done || col === 0) return; guesses[row][--col] = ''; render(); }
+function submit() {
+  if (done || col < 5) { if (!done) { toast('Not enough letters'); shakeRow(); } return; }
+  const g = guesses[row].join('');
+  if (!DICT.has(g.toLowerCase())) { toast('Not in word list'); shakeRow(); return; }
+  const win = g === answer;
+  // update keyboard colors
+  for (let c = 0; c < 5; c++) {
+    const s = scoreTile(guesses[row], c), ch = g[c];
+    if (s === 'correct' || (s === 'present' && keyState[ch] !== 'correct') || (s === 'absent' && !keyState[ch]))
+      keyState[ch] = s;
+  }
+  row++; col = 0; render(); buildKeyboard();
+  if (win) { streak++; document.getElementById('streak').textContent = streak; Portal.save({ streak }); finish(true); }
+  else if (row >= 6) { streak = 0; document.getElementById('streak').textContent = 0; Portal.save({ streak }); finish(false); }
+}
+function shakeRow() {
+  const r = grid.children[row]; if (!r) return;
+  [...r.children].forEach(t => { t.classList.add('shake'); setTimeout(() => t.classList.remove('shake'), 400); });
+}
+function finish(win) {
+  done = true; Portal.gameplayStop();
+  document.getElementById('mtitle').textContent = win ? 'Solved! 🎉' : 'Out of guesses';
+  document.getElementById('msub').textContent = win ? 'In ' + row + (row === 1 ? ' guess. Streak ' : ' guesses. Streak ') + streak : 'The word was ' + answer + '.';
+  document.getElementById('btn').textContent = 'Next word';
+  document.getElementById('msg').style.display = 'flex';
+}
+document.addEventListener('keydown', e => {
+  if (document.getElementById('msg').style.display === 'flex') return;
+  if (e.key === 'Enter') submit();
+  else if (e.key === 'Backspace') del();
+  else if (/^[a-zA-Z]$/.test(e.key)) type(e.key.toUpperCase());
+});
+document.getElementById('btn').addEventListener('click', () => {
+  document.getElementById('msg').style.display = 'none';
+  Portal.gameplayStart(); newGame();
+});
+
+(async function init() {
+  await Portal.ready();
+  const saved = await Portal.load();
+  if (saved && saved.streak) { streak = saved.streak; document.getElementById('streak').textContent = streak; }
+  newGame(); Portal.gameplayStart();
+})();
+</script>
+</body>
+</html>
