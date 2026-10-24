@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Stack Tower</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { background: #0d0d16; border-radius: 8px; max-width: 100%; max-height: 100%; }
+  #hud { position: fixed; top: 10px; left: 12px; font-size: 16px; font-weight: 700; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.85); text-align: center; padding: 20px; }
+  button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 10px 20px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  h1 { margin: 0; font-size: 28px; }
+  p { margin: 0; max-width: 300px; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="360" height="560"></canvas></div>
+<div id="hud">Blocks: <span id="score">0</span> · Best: <span id="best">0</span></div>
+<div id="msg">
+  <h1 id="title">Stack Tower</h1>
+  <p id="sub">Tap, click or press space to drop each block. Line it up — overhang gets sliced off.</p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height, BH = 30; // block height
+let stack, moving, dir, speed, score, best = 0, running = false, camY, flakes;
+
+function hue(i) { return (i * 18 + 180) % 360; }
+function reset() {
+  const w = 220, x = (W - w) / 2;
+  stack = [{ x, w, color: 'hsl(190,80%,55%)' }];
+  score = 0; speed = 2.2; camY = 0; flakes = [];
+  spawn();
+  updateHud();
+}
+function spawn() {
+  const prev = stack[stack.length - 1];
+  const fromLeft = Math.random() < 0.5;
+  moving = { x: fromLeft ? -prev.w : W, w: prev.w, color: 'hsl(' + hue(stack.length) + ',80%,58%)' };
+  dir = fromLeft ? 1 : -1;
+}
+function updateHud() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('best').textContent = best;
+}
+function blockY(indexFromTop) {
+  // top block (the one just placed) sits near a fixed screen height; tower scrolls down
+  return H - 60 - indexFromTop * BH + camY;
+}
+function drop() {
+  if (!running || !moving) return;
+  const prev = stack[stack.length - 1];
+  const left = Math.max(moving.x, prev.x);
+  const right = Math.min(moving.x + moving.w, prev.x + prev.w);
+  const overlap = right - left;
+  if (overlap <= 0) return gameOver();
+  // slice overhang
+  for (let i = 0; i < Math.round(moving.x < prev.x ? (prev.x - moving.x) : (moving.x - prev.x)); i += 6) {
+    flakes.push({ x: moving.x < prev.x ? left : right, y: blockY(0), w: 6, dir: moving.x < prev.x ? -1 : 1, life: 30, color: moving.color });
+  }
+  const placed = { x: left, w: overlap, color: moving.color };
+  const perfect = Math.abs(moving.x - prev.x) < 4;
+  if (perfect) { placed.x = prev.x; placed.w = prev.w; } // snap for a clean perfect
+  stack.push(placed);
+  score++; updateHud();
+  if (perfect) flash();
+  speed = Math.min(6.5, speed + 0.12);
+  spawn();
+}
+let flashT = 0;
+function flash() { flashT = 12; }
+function update() {
+  if (moving) {
+    moving.x += dir * speed;
+    const prev = stack[stack.length - 1];
+    if (moving.x > W) { moving.x = W; dir = -1; }
+    if (moving.x + moving.w < 0) { moving.x = -moving.w; dir = 1; }
+    // gentle auto-bounce within a range so it always crosses the tower
+    if (moving.x > W - 10 && dir > 0) dir = -1;
+    if (moving.x < 10 - moving.w && dir < 0) dir = 1;
+  }
+  // camera eases so the active row stays visible
+  const targetCam = Math.max(0, (stack.length - 8) * BH);
+  camY += (targetCam - camY) * 0.15;
+  for (const f of flakes) { f.x += f.dir * 2; f.y += 4; f.life--; }
+  flakes = flakes.filter(f => f.life > 0);
+  if (flashT > 0) flashT--;
+}
+function roundRect(x, y, w, h) {
+  const r = 4; ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function draw() {
+  ctx.fillStyle = '#0d0d16'; ctx.fillRect(0, 0, W, H);
+  if (flashT > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (flashT / 60) + ')'; ctx.fillRect(0, 0, W, H); }
+  for (let i = 0; i < stack.length; i++) {
+    const b = stack[i], y = blockY(stack.length - 1 - i);
+    if (y > H + BH || y < -BH) continue;
+    ctx.fillStyle = b.color; ctx.shadowColor = b.color; ctx.shadowBlur = 10;
+    roundRect(b.x, y, b.w, BH - 2); ctx.fill(); ctx.shadowBlur = 0;
+  }
+  if (moving && running) {
+    const y = blockY(stack.length);
+    ctx.fillStyle = moving.color; ctx.shadowColor = moving.color; ctx.shadowBlur = 14;
+    roundRect(moving.x, y, moving.w, BH - 2); ctx.fill(); ctx.shadowBlur = 0;
+  }
+  for (const f of flakes) { ctx.globalAlpha = f.life / 30; ctx.fillStyle = f.color; ctx.fillRect(f.x, f.y, f.w, BH - 2); ctx.globalAlpha = 1; }
+}
+function loop() { if (!running) return; update(); draw(); requestAnimationFrame(loop); }
+async function gameOver() {
+  running = false; moving = null;
+  if (score > best) { best = score; Portal.save({ best }); }
+  Portal.submitScore(score); Portal.gameplayStop();
+  updateHud();
+  show('Game Over', score + ' blocks' + (score === best && score > 0 ? ' · New best!' : ''), 'Play again');
+}
+function show(t, s, b) {
+  document.getElementById('title').textContent = t;
+  document.getElementById('sub').textContent = s;
+  document.getElementById('btn').textContent = b;
+  document.getElementById('msg').style.display = 'flex';
+}
+function start() {
+  document.getElementById('msg').style.display = 'none';
+  reset(); running = true; Portal.gameplayStart(); loop();
+}
+function action(e) { if (running) { drop(); if (e) e.preventDefault(); } }
+addEventListener('keydown', e => { if (e.code === 'Space') action(e); });
+cv.addEventListener('mousedown', () => action());
+cv.addEventListener('touchstart', e => action(e), { passive: false });
+document.getElementById('btn').addEventListener('click', start);
+
+(async function init() {
+  await Portal.ready();
+  const saved = await Portal.load();
+  if (saved && saved.best) best = saved.best;
+  reset(); draw(); updateHud();
+  show('Stack Tower', 'Tap, click or press space to drop each block. Line it up — overhang gets sliced off.', 'Play');
+})();
+</script>
+</body>
+</html>
