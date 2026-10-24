@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Neon Dash</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden;
+    font-family: system-ui, sans-serif; color: #ededf2; touch-action: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { background: #0d0d16; border-radius: 8px; max-width: 100%; max-height: 100%; }
+  #hud { position: fixed; top: 10px; left: 12px; font-size: 16px; font-weight: 700; }
+  #msg { position: fixed; inset: 0; display: none; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: rgba(5,5,10,.85); text-align: center; padding: 20px; }
+  button { background: #22d3ee; color: #0a0a0f; border: 0; border-radius: 8px;
+    padding: 10px 20px; font-weight: 700; font-size: 16px; cursor: pointer; }
+  h1 { margin: 0; font-size: 28px; }
+  p { margin: 0; max-width: 300px; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="480" height="320"></canvas></div>
+<div id="hud">Score: <span id="score">0</span> · Best: <span id="best">0</span></div>
+<div id="msg">
+  <h1 id="title">Neon Dash</h1>
+  <p id="sub">Jump the obstacles. Space / tap to jump, hold for a higher leap. Double-jump available.</p>
+  <button id="btn">Play</button>
+</div>
+<script src="../../portal-sdk.js"></script>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height, GROUND = H - 48;
+const GRAV = 0.9, JUMP = -13;
+let player, obstacles, particles, speed, dist, score, best = 0, running = false, spawnT, jumps, holdBoost;
+
+function reset() {
+  player = { x: 70, y: GROUND - 28, w: 24, h: 28, vy: 0, onGround: true };
+  obstacles = []; particles = [];
+  speed = 5; dist = 0; score = 0; spawnT = 60; jumps = 0; holdBoost = 0;
+  updateHud();
+}
+function updateHud() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('best').textContent = best;
+}
+function jump() {
+  if (player.onGround) { player.vy = JUMP; player.onGround = false; jumps = 1; holdBoost = 10; burst(player.x + 12, GROUND); }
+  else if (jumps < 2) { player.vy = JUMP * 0.85; jumps = 2; holdBoost = 6; burst(player.x + 12, player.y + player.h); }
+}
+function releaseJump() { holdBoost = 0; }
+function burst(x, y) {
+  for (let i = 0; i < 8; i++) particles.push({ x, y, vx: (Math.random() - 0.5) * 4, vy: Math.random() * -3, life: 20, c: Math.random() < .5 ? '#22d3ee' : '#a855f7' });
+}
+function spawn() {
+  const kind = Math.random();
+  if (kind < 0.55) { // ground spike(s)
+    const n = 1 + (Math.random() * 3 | 0);
+    obstacles.push({ x: W, y: GROUND - 26, w: 18 * n, h: 26, type: 'spike', scored: false });
+  } else if (kind < 0.8) { // tall block
+    const h = 40 + Math.random() * 30;
+    obstacles.push({ x: W, y: GROUND - h, w: 26, h, type: 'block', scored: false });
+  } else { // floating bar to duck/jump over gap
+    obstacles.push({ x: W, y: GROUND - 90, w: 26, h: 55, type: 'air', scored: false });
+    obstacles.push({ x: W, y: GROUND - 26, w: 26, h: 26, type: 'spike', scored: false });
+  }
+}
+function hit(o) {
+  return player.x < o.x + o.w && player.x + player.w > o.x &&
+         player.y < o.y + o.h && player.y + player.h > o.y;
+}
+function update() {
+  dist += speed; speed = 5 + dist / 1200;
+  if (holdBoost > 0 && !player.onGround && player.vy < 0) { player.vy -= 0.55; holdBoost--; }
+  player.vy += GRAV; player.y += player.vy;
+  if (player.y >= GROUND - player.h) { player.y = GROUND - player.h; player.vy = 0; player.onGround = true; jumps = 0; }
+  if (--spawnT <= 0) { spawn(); spawnT = Math.max(45, 95 - dist / 300) + Math.random() * 25; }
+  for (const o of obstacles) {
+    o.x -= speed;
+    if (hit(o)) return gameOver();
+  }
+  obstacles = obstacles.filter(o => o.x + o.w > -10);
+  score = Math.floor(dist / 10); updateHud();
+  for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--; }
+  particles = particles.filter(p => p.life > 0);
+}
+function draw() {
+  ctx.fillStyle = '#0d0d16'; ctx.fillRect(0, 0, W, H);
+  // parallax lines
+  ctx.strokeStyle = 'rgba(168,85,247,.15)';
+  for (let i = 0; i < 6; i++) { const y = 40 + i * 30; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  // ground
+  ctx.fillStyle = '#15152a'; ctx.fillRect(0, GROUND, W, H - GROUND);
+  ctx.strokeStyle = '#22d3ee'; ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 8;
+  ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke(); ctx.shadowBlur = 0;
+  // obstacles
+  for (const o of obstacles) {
+    if (o.type === 'spike') {
+      ctx.fillStyle = '#f472b6'; ctx.shadowColor = '#f472b6'; ctx.shadowBlur = 10;
+      const n = Math.max(1, Math.round(o.w / 18));
+      for (let i = 0; i < n; i++) {
+        const bx = o.x + i * 18;
+        ctx.beginPath(); ctx.moveTo(bx, o.y + o.h); ctx.lineTo(bx + 9, o.y); ctx.lineTo(bx + 18, o.y + o.h); ctx.closePath(); ctx.fill();
+      }
+    } else {
+      ctx.fillStyle = o.type === 'air' ? '#facc15' : '#4ade80';
+      ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 10;
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+    }
+    ctx.shadowBlur = 0;
+  }
+  // particles
+  for (const p of particles) { ctx.globalAlpha = p.life / 20; ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, 3, 3); ctx.globalAlpha = 1; }
+  // player
+  ctx.fillStyle = '#67e8f9'; ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 14;
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#0a0a0f'; ctx.fillRect(player.x + 15, player.y + 7, 5, 5);
+}
+function loop() { if (!running) return; update(); if (running) draw(); requestAnimationFrame(loop); }
+async function gameOver() {
+  running = false;
+  if (score > best) { best = score; Portal.save({ best }); }
+  Portal.submitScore(score); Portal.gameplayStop();
+  updateHud();
+  show('Game Over', 'Distance: ' + score + (score === best ? ' · New best!' : ''), 'Run again');
+}
+function show(t, s, b) {
+  document.getElementById('title').textContent = t;
+  document.getElementById('sub').textContent = s;
+  document.getElementById('btn').textContent = b;
+  document.getElementById('msg').style.display = 'flex';
+}
+function start() {
+  document.getElementById('msg').style.display = 'none';
+  reset(); running = true; Portal.gameplayStart(); loop();
+}
+addEventListener('keydown', e => { if (e.code === 'Space' || e.code === 'ArrowUp') { if (running) jump(); e.preventDefault(); } });
+addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'ArrowUp') releaseJump(); });
+cv.addEventListener('touchstart', e => { if (running) jump(); e.preventDefault(); }, { passive: false });
+cv.addEventListener('touchend', e => { releaseJump(); e.preventDefault(); }, { passive: false });
+cv.addEventListener('mousedown', () => { if (running) jump(); });
+cv.addEventListener('mouseup', releaseJump);
+document.getElementById('btn').addEventListener('click', start);
+
+(async function init() {
+  await Portal.ready();
+  const saved = await Portal.load();
+  if (saved && saved.best) best = saved.best;
+  reset(); draw(); updateHud();
+  show('Neon Dash', 'Jump the obstacles. Space / tap to jump, hold for a higher leap. Double-jump available.', 'Play');
+})();
+</script>
+</body>
+</html>
