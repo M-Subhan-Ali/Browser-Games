@@ -334,5 +334,173 @@
       "source": "https://github.com/yourname/browser-games-portal",
       "permissionFile": "licenses/box-push.txt"
     }
+  },
+  {
+    "slug": "bubble-shooter",
+    "title": "Bubble Shooter",
+    "version": "v1",
+    "categories": ["arcade", "puzzle"],
+    "thumbnail": "/thumbs/bubble-shooter.webp",
+    "description": "Aim, shoot and pop clusters of three or more. Clear the board before it reaches the bottom.",
+    "controls": ["mouse", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 200000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/bubble-shooter.txt"
+    }
+  },
+  {
+    "slug": "sudoku",
+    "title": "Sudoku",
+    "version": "v1",
+    "categories": ["puzzle"],
+    "thumbnail": "/thumbs/sudoku.webp",
+    "description": "Fill the grid so every row, column and box holds 1 to 9. Three difficulties, pencil marks and a timer.",
+    "controls": ["mouse", "keyboard", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": false,
+    "maxScore": 0,
+    "needsNickname": false,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/sudoku.txt"
+    }
+  },
+  {
+    "slug": "reversi",
+    "title": "Reversi",
+    "version": "v1",
+    "categories": ["board", "strategy"],
+    "thumbnail": "/thumbs/reversi.webp",
+    "description": "Outflank your opponent to flip their discs. Play a sharp computer or a friend on one device.",
+    "controls": ["mouse", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": false,
+    "maxScore": 0,
+    "needsNickname": false,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/reversi.txt"
+    }
+  },
+  {
+    "slug": "neon-dash",
+    "title": "Neon Dash",
+    "version": "v1",
+    "categories": ["arcade", "action"],
+    "thumbnail": "/thumbs/neon-dash.webp",
+    "description": "An endless neon runner. Jump and double-jump the obstacles as the speed keeps climbing.",
+    "controls": ["keyboard", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 1000000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/neon-dash.txt"
+    }
+  },
+  {
+    "slug": "chess",
+    "title": "Chess",
+    "version": "v1",
+    "categories": ["board", "strategy"],
+    "thumbnail": "/thumbs/chess.webp",
+    "description": "Full-rules chess with castling, en passant and promotion. Take on the computer or a friend.",
+    "controls": ["mouse", "touch"],
+    "orientation": "any",
+    "featured": true,
+    "new": true,
+    "leaderboard": false,
+    "maxScore": 0,
+    "needsNickname": false,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/chess.txt"
+    }
+  },
+  {
+    "slug": "neon-words",
+    "title": "Neon Words",
+    "version": "v1",
+    "categories": ["puzzle", "casual"],
+    "thumbnail": "/thumbs/neon-words.webp",
+    "description": "Guess the five-letter word in six tries. Green is right, purple is close. Keep your streak alive.",
+    "controls": ["keyboard", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": false,
+    "maxScore": 0,
+    "needsNickname": false,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/neon-words.txt"
+    }
+  },
+  {
+    "slug": "stack-tower",
+    "title": "Stack Tower",
+    "version": "v1",
+    "categories": ["arcade", "casual"],
+    "thumbnail": "/thumbs/stack-tower.webp",
+    "description": "Drop each sliding block to build the tallest tower. Miss the line and the overhang is sliced away.",
+    "controls": ["mouse", "keyboard", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 100000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/stack-tower.txt"
+    }
+  },
+  {
+    "slug": "neon-crossing",
+    "title": "Neon Crossing",
+    "version": "v1",
+    "categories": ["arcade", "action"],
+    "thumbnail": "/thumbs/neon-crossing.webp",
+    "description": "Hop across endless lanes of neon traffic. Dodge the cars and don't get left behind the edge.",
+    "controls": ["keyboard", "touch"],
+    "orientation": "any",
+    "featured": false,
+    "new": true,
+    "leaderboard": true,
+    "maxScore": 100000,
+    "needsNickname": true,
+    "license": {
+      "type": "MIT",
+      "author": "Browser Games Portal",
+      "source": "https://github.com/yourname/browser-games-portal",
+      "permissionFile": "licenses/neon-crossing.txt"
+    }
   }
 ]
